@@ -29,6 +29,7 @@ namespace VideoCall.Domain.Entities
         public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
         public ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
         public ICollection<BlockedUser> BlockedUsers { get; set; } = new List<BlockedUser>();
+        public ICollection<Story> Stories { get; set; } = new List<Story>();
 
         // Backward compat helpers (used in Hub)
         public string Name => Username;

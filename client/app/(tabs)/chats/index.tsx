@@ -19,7 +19,7 @@ export default function ChatsScreen() {
   const { isConnected } = useSignalR();
   const { users } = useUserStore();
   const { getLastMessage } = useChatStore();
-  const { userName } = useAuthStore();
+  const { userName, accessToken } = useAuthStore();
 
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -29,9 +29,12 @@ export default function ChatsScreen() {
     if (!phoneNumber) return;
     try {
       setIsAdding(true);
-      const response = await fetch(`${API_URL}/friend/request`, {
+      const response = await fetch(`${API_URL}/friends/request`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
         body: JSON.stringify({ phoneNumber })
       });
       const data = await response.json();

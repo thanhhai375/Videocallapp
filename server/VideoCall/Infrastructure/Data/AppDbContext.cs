@@ -17,6 +17,8 @@ namespace VideoCall.Infrastructure.Data
         public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
         public DbSet<CallLog> CallLogs => Set<CallLog>();
         public DbSet<BlockedUser> BlockedUsers => Set<BlockedUser>();
+        public DbSet<Story> Stories => Set<Story>();
+        public DbSet<StoryView> StoryViews => Set<StoryView>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -171,6 +173,35 @@ namespace VideoCall.Infrastructure.Data
                     .HasForeignKey(bu => bu.BlockedId)
                     .OnDelete(DeleteBehavior.Restrict);
                 b.HasIndex(bu => new { bu.BlockerId, bu.BlockedId }).IsUnique();
+            });
+
+            // -- STORIES --
+            modelBuilder.Entity<Story>(b =>
+            {
+                b.HasKey(s => s.Id);
+                b.HasOne(s => s.User)
+                    .WithMany(u => u.Stories)
+                    .HasForeignKey(s => s.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(s => s.ExpiresAt);
+                b.HasIndex(s => s.CreatedAt);
+                // Only return non-expired stories automatically
+                b.HasQueryFilter(s => s.ExpiresAt > DateTime.UtcNow);
+            });
+
+            // -- STORY VIEWS --
+            modelBuilder.Entity<StoryView>(b =>
+            {
+                b.HasKey(sv => sv.Id);
+                b.HasOne(sv => sv.Story)
+                    .WithMany(s => s.Views)
+                    .HasForeignKey(sv => sv.StoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(sv => sv.Viewer)
+                    .WithMany()
+                    .HasForeignKey(sv => sv.ViewerId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(sv => new { sv.StoryId, sv.ViewerId }).IsUnique();
             });
         }
     }

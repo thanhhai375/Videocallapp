@@ -1,171 +1,292 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  TextInput, Alert, ActivityIndicator, Image, RefreshControl
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { useAuthStore } from '@features/auth/store/authStore';
-import { useSignalR } from '@shared/hooks/useSignalR';
-import { Avatar } from '@shared/components/Avatar';
+import { API_URL } from '@shared/constants/config';
+
+interface ProfileData {
+  id: string;
+  username: string;
+  phoneNumber: string;
+  email?: string;
+  profilePictureUrl?: string;
+  bio?: string;
+  isOnline: boolean;
+  createdAt: string;
+}
 
 export default function ProfileScreen() {
-  const { userName, logout } = useAuthStore();
-  const { disconnect } = useSignalR();
   const insets = useSafeAreaInsets();
+  const { accessToken, logout } = useAuthStore();
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [editUsername, setEditUsername] = useState('');
+  const [editBio, setEditBio] = useState('');
 
-  const handleLogout = async () => {
-    await disconnect();
-    await logout();
-    router.replace('/(auth)/login');
+  const authHeaders = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
+
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch(`${API_URL}/profile`, { headers: authHeaders });
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(data);
+        setEditUsername(data.username);
+        setEditBio(data.bio || '');
+      }
+    } catch {}
+    finally { setLoading(false); setRefreshing(false); }
   };
 
+  useEffect(() => { fetchProfile(); }, [accessToken]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/profile`, {
+        method: 'PUT',
+        headers: authHeaders,
+        body: JSON.stringify({ username: editUsername, bio: editBio }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        Alert.alert('✅', data.message);
+        setEditing(false);
+        fetchProfile();
+      } else {
+        Alert.alert('Lỗi', data.message);
+      }
+    } catch { Alert.alert('Lỗi', 'Không thể kết nối máy chủ'); }
+    finally { setSaving(false); }
+  };
+
+  const handleChangeAvatar = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Cần quyền', 'Cho phép truy cập thư viện ảnh');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    setUploadingAvatar(true);
+    try {
+      const asset = result.assets[0];
+      const filename = asset.uri.split('/').pop() || 'avatar.jpg';
+      const formData = new FormData();
+      formData.append('file', { uri: asset.uri, name: filename, type: 'image/jpeg' } as any);
+
+      const uploadRes = await fetch(`${API_URL}/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      if (!uploadRes.ok) { Alert.alert('Lỗi', 'Không tải được ảnh'); return; }
+      const { url } = await uploadRes.json();
+
+      const avatarRes = await fetch(`${API_URL}/profile/avatar`, {
+        method: 'PUT',
+        headers: authHeaders,
+        body: JSON.stringify({ avatarUrl: url }),
+      });
+      if (avatarRes.ok) {
+        Alert.alert('✅', 'Đã cập nhật ảnh đại diện!');
+        fetchProfile();
+      }
+    } catch { Alert.alert('Lỗi', 'Có lỗi xảy ra'); }
+    finally { setUploadingAvatar(false); }
+  };
+
+  const handleLogout = () => {
+    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Đăng xuất', style: 'destructive', onPress: () => logout() },
+    ]);
+  };
+
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator color={Colors.primary} size="large" />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={{ paddingBottom: 40 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchProfile(); }} tintColor={Colors.primary} />}
+    >
+      {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-        <Text style={styles.headerTitle}>Me</Text>
+        <Text style={styles.headerTitle}>Hồ sơ</Text>
+        {!editing ? (
+          <TouchableOpacity onPress={() => setEditing(true)} style={styles.editBtn}>
+            <Ionicons name="pencil" size={20} color={Colors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={() => setEditing(false)} style={styles.editBtn}>
+            <Ionicons name="close" size={22} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      <View style={styles.profileSection}>
-        <Avatar name={userName || 'User'} size="xl" />
-        <Text style={styles.name}>{userName}</Text>
+      {/* Avatar */}
+      <View style={styles.avatarSection}>
+        <TouchableOpacity onPress={handleChangeAvatar} disabled={uploadingAvatar}>
+          {profile?.profilePictureUrl ? (
+            <Image source={{ uri: profile.profilePictureUrl }} style={styles.avatarImg} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarInitial}>
+                {profile?.username?.charAt(0).toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
+          <View style={styles.avatarEditBadge}>
+            {uploadingAvatar
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Ionicons name="camera" size={14} color="#fff" />}
+          </View>
+        </TouchableOpacity>
+
+        {editing ? (
+          <TextInput
+            style={styles.nameInput}
+            value={editUsername}
+            onChangeText={setEditUsername}
+            placeholder="Tên hiển thị"
+            placeholderTextColor={Colors.textMuted}
+          />
+        ) : (
+          <Text style={styles.profileName}>{profile?.username}</Text>
+        )}
+        <Text style={styles.profilePhone}>{profile?.phoneNumber}</Text>
       </View>
 
-      <View style={styles.settingsSection}>
-        {/* Mock Options */}
-        <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}>
-          <View style={styles.settingLeft}>
-            <View style={styles.settingIconWrap}>
-              <Ionicons name="person-circle" size={24} color={Colors.text} />
-            </View>
-            <Text style={styles.settingLabel}>Tài khoản</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-        </TouchableOpacity>
+      {/* Bio */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Giới thiệu</Text>
+        {editing ? (
+          <TextInput
+            style={styles.bioInput}
+            value={editBio}
+            onChangeText={setEditBio}
+            placeholder="Thêm giới thiệu về bạn..."
+            placeholderTextColor={Colors.textMuted}
+            multiline
+            maxLength={150}
+          />
+        ) : (
+          <Text style={styles.bioText}>{profile?.bio || 'Chưa có giới thiệu'}</Text>
+        )}
+      </View>
 
-        <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}>
-          <View style={styles.settingLeft}>
-            <View style={styles.settingIconWrap}>
-              <Ionicons name="lock-closed" size={22} color={Colors.text} />
-            </View>
-            <Text style={styles.settingLabel}>Quyền riêng tư</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}>
-          <View style={styles.settingLeft}>
-            <View style={styles.settingIconWrap}>
-              <Ionicons name="globe" size={22} color={Colors.text} />
-            </View>
-            <Text style={styles.settingLabel}>Ngôn ngữ</Text>
-          </View>
-          <Text style={styles.settingValue}>Tiếng Việt</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}>
-          <View style={styles.settingLeft}>
-            <View style={styles.settingIconWrap}>
-              <Ionicons name="help-circle" size={24} color={Colors.text} />
-            </View>
-            <Text style={styles.settingLabel}>Trợ giúp & Hỗ trợ</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Existing Options */}
-        <View style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <View style={styles.settingIconWrap}>
-              <Ionicons name="moon" size={20} color={Colors.text} />
-            </View>
-            <Text style={styles.settingLabel}>Dark Mode</Text>
-          </View>
-          <Text style={styles.settingValue}>On</Text>
+      {/* Info */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Thông tin</Text>
+        <View style={styles.infoRow}>
+          <Ionicons name="call-outline" size={18} color={Colors.textSecondary} />
+          <Text style={styles.infoText}>{profile?.phoneNumber}</Text>
         </View>
-
-        <View style={styles.settingItem}>
-          <View style={styles.settingLeft}>
-            <View style={[styles.settingIconWrap, { backgroundColor: Colors.danger }]}>
-              <Ionicons name="notifications" size={20} color="#FFF" />
-            </View>
-            <Text style={styles.settingLabel}>Notifications</Text>
+        {profile?.email && (
+          <View style={styles.infoRow}>
+            <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} />
+            <Text style={styles.infoText}>{profile?.email}</Text>
           </View>
+        )}
+        <View style={styles.infoRow}>
+          <Ionicons name="calendar-outline" size={18} color={Colors.textSecondary} />
+          <Text style={styles.infoText}>Tham gia {profile?.createdAt ? formatDate(profile.createdAt) : ''}</Text>
         </View>
-
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Đăng xuất</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+
+      {/* Save / Logout */}
+      {editing && (
+        <TouchableOpacity
+          style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.saveBtnText}>Lưu thay đổi</Text>}
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
+        <Text style={styles.logoutText}>Đăng xuất</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.bg,
-  },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  center: { justifyContent: 'center', alignItems: 'center' },
   header: {
-    paddingHorizontal: Layout.spacing.lg,
-    paddingBottom: Layout.spacing.md,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Layout.spacing.lg, paddingBottom: Layout.spacing.md,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: Colors.text,
+  headerTitle: { fontSize: 28, fontWeight: 'bold', color: Colors.text },
+  editBtn: { padding: 8 },
+  avatarSection: { alignItems: 'center', paddingVertical: 24 },
+  avatarImg: { width: 96, height: 96, borderRadius: 48 },
+  avatarPlaceholder: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
   },
-  profileSection: {
-    alignItems: 'center',
-    paddingVertical: Layout.spacing.xl,
+  avatarInitial: { color: '#fff', fontSize: 40, fontWeight: 'bold' },
+  avatarEditBadge: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: Colors.bg,
   },
-  name: {
-    color: Colors.text,
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: Layout.spacing.md,
+  profileName: { color: Colors.text, fontSize: 22, fontWeight: 'bold', marginTop: 12 },
+  profilePhone: { color: Colors.textSecondary, fontSize: 14, marginTop: 4 },
+  nameInput: {
+    color: Colors.text, fontSize: 22, fontWeight: 'bold', marginTop: 12,
+    borderBottomWidth: 1, borderBottomColor: Colors.primary,
+    paddingVertical: 4, minWidth: 200, textAlign: 'center',
   },
-  settingsSection: {
-    paddingHorizontal: Layout.spacing.lg,
+  section: { paddingHorizontal: Layout.spacing.lg, marginBottom: 20 },
+  sectionLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', marginBottom: 10 },
+  bioText: { color: Colors.text, fontSize: 15, lineHeight: 22 },
+  bioInput: {
+    color: Colors.text, fontSize: 15, lineHeight: 22,
+    backgroundColor: Colors.surfaceInput, borderRadius: 10,
+    padding: 12, minHeight: 80, textAlignVertical: 'top',
   },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Layout.spacing.md,
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  infoText: { color: Colors.text, fontSize: 15 },
+  saveBtn: {
+    marginHorizontal: Layout.spacing.lg, marginBottom: 16,
+    backgroundColor: Colors.primary, padding: 14, borderRadius: 12, alignItems: 'center',
   },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  settingIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.surfaceInput,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: Layout.spacing.md,
-  },
-  settingLabel: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  settingValue: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-  },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   logoutBtn: {
-    marginTop: Layout.spacing.xl,
-    paddingVertical: Layout.spacing.md,
-    backgroundColor: Colors.surfaceInput,
-    borderRadius: 12,
-    alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, marginHorizontal: Layout.spacing.lg, marginTop: 8,
+    padding: 14, borderRadius: 12, borderWidth: 1, borderColor: Colors.danger,
   },
-  logoutText: {
-    color: Colors.danger,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  logoutText: { color: Colors.danger, fontSize: 16, fontWeight: '600' },
 });
