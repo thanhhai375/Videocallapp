@@ -111,13 +111,27 @@ export function useSignalR(): UseSignalRReturn {
 
     // ─── Start Connection ─────────────────────────────────────────────────────
 
-    connection
-      .start()
-      .then(() => {
+    const startConnection = async () => {
+      try {
+        await connection.start();
         setIsConnected(true);
         console.log("SignalR connected!");
-      })
-      .catch((err) => console.error("SignalR connection error:", err));
+      } catch (err: any) {
+        // Try to refresh token and reconnect once
+        const newToken = await useAuthStore.getState().refreshAccessToken();
+        if (newToken) {
+          try {
+            // Must rebuild connection with new token (SignalR doesn't support mid-life token swap)
+            await connection.stop();
+          } catch {}
+          // Will re-trigger via useEffect when accessToken changes in store
+        } else {
+          console.warn("SignalR: could not connect, token may be expired. Please re-login.");
+        }
+      }
+    };
+
+    startConnection();
 
     connectionRef.current = connection;
 
