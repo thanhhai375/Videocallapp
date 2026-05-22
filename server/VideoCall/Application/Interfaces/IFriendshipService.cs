@@ -1,9 +1,4 @@
-﻿
+// Legacy interface - no longer used; logic is now in FriendController via AppDbContext directly
 namespace VideoCall.Application.Interfaces
 {
-    public interface IFriendshipService
-    {
-        Task<bool> AreFriendsAsync(string userId1, string userId2);
-        Task AddFriendshipAsync(string userId1, string userId2);
-    }
 }

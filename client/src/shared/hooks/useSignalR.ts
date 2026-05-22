@@ -31,7 +31,7 @@ interface UseSignalRReturn {
 }
 
 export function useSignalR(): UseSignalRReturn {
-  const { token } = useAuthStore();
+  const { accessToken } = useAuthStore();
   const { setUsers, updateUserStatus } = useUserStore();
   const { addMessage, setHistory, setTypingStatus, markMessageSeen } = useChatStore();
   
@@ -44,10 +44,10 @@ export function useSignalR(): UseSignalRReturn {
   const onReceiveIceRef = useRef<((candidate: object) => void) | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!accessToken) return;
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${HUB_URL}?token=${token}`)
+      .withUrl(`${HUB_URL}?access_token=${accessToken}`)
       .withAutomaticReconnect()
       .configureLogging(signalR.LogLevel.Warning)
       .build();
@@ -125,7 +125,7 @@ export function useSignalR(): UseSignalRReturn {
       connection.stop();
       setIsConnected(false);
     };
-  }, [token, setUsers, updateUserStatus, addMessage]);
+  }, [accessToken, setUsers, updateUserStatus, addMessage]);
 
   const invoke = useCallback(async (method: string, ...args: unknown[]) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {

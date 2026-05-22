@@ -1,138 +1,214 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using System.Text;
-using VideoCall.Application.Interfaces;
+using System.Security.Claims;
 using VideoCall.Domain.Entities;
+using VideoCall.Infrastructure.Data;
 
 namespace VideoCall.Infrastructure.SignalR
 {
+    [Authorize]
     public class VideoCallHub : Hub
     {
-        private readonly IUserService _userService;
+        private readonly AppDbContext _db;
 
-        public static List<Message> _messageStore = new List<Message>();
-
-        public VideoCallHub(IUserService userService)
+        public VideoCallHub(AppDbContext db)
         {
-            _userService = userService;
+            _db = db;
         }
+
+        private Guid CurrentUserId => Guid.Parse(Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         public override async Task OnConnectedAsync()
         {
-            var token = Context.GetHttpContext()?.Request.Query["token"].FirstOrDefault();
-            if (string.IsNullOrEmpty(token)) { Context.Abort(); return; }
+            var userId = CurrentUserId;
+            var user = await _db.Users.FindAsync(userId);
+            if (user == null) { Context.Abort(); return; }
 
-            var userIdString = Encoding.UTF8.GetString(Convert.FromBase64String(token));
+            user.IsOnline = true;
+            user.ConnectionId = Context.ConnectionId;
+            await _db.SaveChangesAsync();
 
-            // Set Online
-            await _userService.SetOnlineAsync(userIdString, Context.ConnectionId);
+            // Get all friends with online status
+            var friendIds = _db.Friendships
+                .Where(f => f.User1Id == userId || f.User2Id == userId)
+                .Select(f => f.User1Id == userId ? f.User2Id : f.User1Id)
+                .ToList();
 
-            // Lấy danh sách TẤT CẢ user (kể cả offline)
-            var allUsers = await _userService.GetAllUsersWithStatusAsync(userIdString);
+            var friends = _db.Users
+                .Where(u => friendIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.Username, u.IsOnline, u.ConnectionId, u.ProfilePictureUrl, Name = u.Username })
+                .ToList();
 
-            // Gửi danh sách về cho người vừa login
-            await Clients.Caller.SendAsync("LoadFriends",
-                allUsers.Select(f => new { f.Id, f.Name, f.IsOnline, f.ConnectionId }));
-
-            // Báo cho người khác biết mình vừa Online
-            var me = _userService.GetAllUsers().FirstOrDefault(u => u.Id == userIdString);
-            await Clients.Others.SendAsync("UserStatusChanged", userIdString, true, Context.ConnectionId); // true = Online
+            await Clients.Caller.SendAsync("LoadFriends", friends);
+            await Clients.Others.SendAsync("UserStatusChanged", userId.ToString(), true, Context.ConnectionId);
 
             await base.OnConnectedAsync();
         }
 
         public override async Task OnDisconnectedAsync(Exception? ex)
         {
-            var user = await _userService.SetOfflineAsync(Context.ConnectionId);
+            var userId = CurrentUserId;
+            var user = await _db.Users.FindAsync(userId);
             if (user != null)
             {
-                // Báo cho mọi người biết mình Offline
-                await Clients.Others.SendAsync("UserStatusChanged", user.Id, false, null); // false = Offline
+                user.IsOnline = false;
+                user.ConnectionId = null;
+                user.LastSeenAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+                await Clients.Others.SendAsync("UserStatusChanged", userId.ToString(), false, null);
             }
             await base.OnDisconnectedAsync(ex);
         }
 
-        // --- CHỨC NĂNG CHAT ---
-        public async Task SendMessage(string targetId, string content)
+        // ── CHAT ─────────────────────────────────────────────────────
+        public async Task SendMessage(string targetId, string content, string messageType = "Text")
         {
-            var sender = _userService.GetByConnectionId(Context.ConnectionId);
-            if (sender == null) return;
+            var senderId = CurrentUserId;
+            if (!Guid.TryParse(targetId, out var receiverId)) return;
 
-            var msg = new Message { SenderId = sender.Id, ReceiverId = targetId, Content = content };
-            _messageStore.Add(msg);
+            var msgType = Enum.TryParse<MessageType>(messageType, out var mt) ? mt : MessageType.Text;
+            string? mediaUrl = msgType != MessageType.Text ? content : null;
 
-            var targetUser = _userService.GetOnlineUserById(targetId);
-
-            await Clients.Caller.SendAsync("ReceiveMessage", sender.Id, content);
-
-            if (targetUser != null && targetUser.ConnectionId != null)
+            var message = new Message
             {
-                await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveMessage", sender.Id, content);
+                SenderId = senderId,
+                ReceiverId = receiverId,
+                Content = msgType == MessageType.Text ? content : string.Empty,
+                MessageType = msgType,
+                MediaUrl = mediaUrl,
+            };
+
+            _db.Messages.Add(message);
+            await _db.SaveChangesAsync();
+
+            var payload = new
+            {
+                id = message.Id,
+                senderId = message.SenderId,
+                content = message.Content,
+                messageType = message.MessageType.ToString(),
+                mediaUrl = message.MediaUrl,
+                createdAt = message.CreatedAt
+            };
+
+            await Clients.Caller.SendAsync("ReceiveMessage", senderId.ToString(), content, message.Id.ToString());
+
+            var targetUser = await _db.Users.FindAsync(receiverId);
+            if (targetUser?.ConnectionId != null)
+            {
+                await Clients.Client(targetUser.ConnectionId)
+                    .SendAsync("ReceiveMessage", senderId.ToString(), content, message.Id.ToString());
             }
         }
 
         public async Task GetChatHistory(string targetId)
         {
-            var sender = _userService.GetByConnectionId(Context.ConnectionId);
-            if (sender == null) return;
-            
-            var history = _messageStore
-                .Where(m => (m.SenderId == sender.Id && m.ReceiverId == targetId) ||
-                            (m.SenderId == targetId && m.ReceiverId == sender.Id))
-                .OrderBy(m => m.Timestamp)
-                .Select(m => new { m.SenderId, m.Content })
+            if (!Guid.TryParse(targetId, out var otherId)) return;
+            var myId = CurrentUserId;
+
+            var history = _db.Messages
+                .Where(m =>
+                    (m.SenderId == myId && m.ReceiverId == otherId) ||
+                    (m.SenderId == otherId && m.ReceiverId == myId))
+                .OrderBy(m => m.CreatedAt)
+                .Select(m => new { m.SenderId, Content = m.IsDeleted ? "Tin nhắn đã bị xóa" : m.Content, m.CreatedAt, m.Id })
                 .ToList();
 
             await Clients.Caller.SendAsync("LoadChatHistory", history);
         }
 
-
-        // --- TÍNH NĂNG CHAT NÂNG CAO ---
         public async Task TypingStarted(string targetId)
         {
-            var targetUser = _userService.GetOnlineUserById(targetId);
+            var targetUser = await _db.Users.FindAsync(Guid.Parse(targetId));
             if (targetUser?.ConnectionId != null)
                 await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveTypingStarted", Context.ConnectionId);
         }
 
         public async Task TypingEnded(string targetId)
         {
-            var targetUser = _userService.GetOnlineUserById(targetId);
+            var targetUser = await _db.Users.FindAsync(Guid.Parse(targetId));
             if (targetUser?.ConnectionId != null)
                 await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveTypingEnded", Context.ConnectionId);
         }
 
         public async Task MarkMessageSeen(string targetId, string messageId)
         {
-            var targetUser = _userService.GetOnlineUserById(targetId);
+            if (!Guid.TryParse(messageId, out var msgGuid)) return;
+            var readerId = CurrentUserId;
+
+            var alreadyRead = _db.MessageReadReceipts.Any(r => r.MessageId == msgGuid && r.ReaderId == readerId);
+            if (!alreadyRead)
+            {
+                _db.MessageReadReceipts.Add(new MessageReadReceipt { MessageId = msgGuid, ReaderId = readerId });
+                await _db.SaveChangesAsync();
+            }
+
+            var targetUser = await _db.Users.FindAsync(Guid.Parse(targetId));
             if (targetUser?.ConnectionId != null)
                 await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveMessageSeen", Context.ConnectionId, messageId);
         }
 
-        //Bắt đầu cuộc gọi
-        public async Task CallFriend(string targetId)
-        {
-            var caller = _userService.GetByConnectionId(Context.ConnectionId);
-            if (string.IsNullOrEmpty(targetId)) return;
+        // ── CALLS ─────────────────────────────────────────────────────
+        private static readonly Dictionary<string, (Guid callerId, Guid receiverId, DateTime startedAt)> _activeCalls = new();
 
-            await Clients.Client(targetId).SendAsync("IncomingCall", Context.ConnectionId, caller?.Name);
+        public async Task CallFriend(string targetConnectionId, string callType = "Video")
+        {
+            var caller = await _db.Users.FindAsync(CurrentUserId);
+            _activeCalls[Context.ConnectionId] = (CurrentUserId, Guid.Empty, DateTime.UtcNow);
+            await Clients.Client(targetConnectionId).SendAsync("IncomingCall", Context.ConnectionId, caller?.Username, callType);
         }
 
-        //Kết thúc cuộc gọi 
-        public async Task EndCall(string targetId)
+        public async Task AcceptCall(string callerConnectionId)
         {
-            // Báo cho đối phương biết cuộc gọi đã kết thúc
-            await Clients.Client(targetId).SendAsync("CallEnded");
+            if (_activeCalls.TryGetValue(callerConnectionId, out var info))
+            {
+                _activeCalls[callerConnectionId] = (info.callerId, CurrentUserId, info.startedAt);
+            }
+            await Clients.Client(callerConnectionId).SendAsync("CallAccepted", Context.ConnectionId);
         }
 
-        //Chấp nhận cuộc gọi
-        public async Task AcceptCall(string callerId) => await Clients.Client(callerId).SendAsync("CallAccepted", Context.ConnectionId);
-        //Từ chối cuộc gọi
-        public async Task RejectCall(string callerId) => await Clients.Client(callerId).SendAsync("CallRejected");
-        //Gửi offer
+        public async Task RejectCall(string callerConnectionId)
+        {
+            // Log missed call
+            if (_activeCalls.TryGetValue(callerConnectionId, out var info) && info.callerId != Guid.Empty)
+            {
+                _db.CallLogs.Add(new CallLog
+                {
+                    CallerId = info.callerId,
+                    ReceiverId = CurrentUserId,
+                    Status = CallStatus.Rejected,
+                    StartedAt = info.startedAt,
+                    EndedAt = DateTime.UtcNow
+                });
+                await _db.SaveChangesAsync();
+                _activeCalls.Remove(callerConnectionId);
+            }
+            await Clients.Client(callerConnectionId).SendAsync("CallRejected");
+        }
+
+        public async Task EndCall(string targetConnectionId)
+        {
+            // Log completed call
+            if (_activeCalls.TryGetValue(Context.ConnectionId, out var info) && info.receiverId != Guid.Empty)
+            {
+                var ended = DateTime.UtcNow;
+                _db.CallLogs.Add(new CallLog
+                {
+                    CallerId = info.callerId,
+                    ReceiverId = info.receiverId,
+                    Status = CallStatus.Completed,
+                    StartedAt = info.startedAt,
+                    EndedAt = ended,
+                    DurationSeconds = (int)(ended - info.startedAt).TotalSeconds
+                });
+                await _db.SaveChangesAsync();
+                _activeCalls.Remove(Context.ConnectionId);
+            }
+            await Clients.Client(targetConnectionId).SendAsync("CallEnded");
+        }
+
         public async Task SendOffer(string targetId, string sdp) => await Clients.Client(targetId).SendAsync("ReceiveOffer", Context.ConnectionId, sdp);
-        //Phản hồi offer
         public async Task SendAnswer(string targetId, string sdp) => await Clients.Client(targetId).SendAsync("ReceiveAnswer", sdp);
-        //Gửi thông tin địa chỉ mạng
         public async Task SendIce(string targetId, object candidate) => await Clients.Client(targetId).SendAsync("ReceiveIce", candidate);
     }
 }

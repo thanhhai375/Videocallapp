@@ -1,62 +1,43 @@
-# 📱 VideoCall Monorepo
+# VideoCallApp - Hướng dẫn khởi động
 
-Monorepo chứa server backend và client React Native cho ứng dụng Video Call.
+## Yêu cầu
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) đã được cài đặt và đang chạy.
 
-## Cấu trúc
-
-```
-VideoCallMonorepo/
-├── server/     # ASP.NET Core Backend (SignalR + REST API)
-└── client/     # React Native (Expo) Mobile App
-```
-
-## Hướng dẫn chạy
-
-### Server
+## Khởi động Backend + Database bằng 1 lệnh
 
 ```bash
-cd server/VideoCall
-dotnet run
-# Server chạy tại http://localhost:5000
+cd server
+docker-compose up -d
 ```
 
-### Client (React Native / Expo)
+Docker sẽ tự động:
+1. Tải PostgreSQL 16
+2. Tạo database `videocalldb`
+3. Build và chạy Backend API .NET 8
+4. Tự động tạo tất cả các bảng trong database
+5. Seed dữ liệu mặc định (Nam, Hung, Lan, Minh - mật khẩu: 123)
+
+API sẽ chạy tại: `http://localhost:5228`
+
+## Khởi động App di động
 
 ```bash
 cd client
-npm install
-npx expo start
-# Quét QR bằng Expo Go hoặc chạy emulator
+npx expo run:android
 ```
 
-## Tech Stack
+## Dừng lại
 
-| | Công nghệ |
-|---|---|
-| **Backend** | ASP.NET Core, SignalR, BCrypt |
-| **Mobile** | React Native, Expo, Expo Router |
-| **Realtime** | SignalR (chat + WebRTC signaling) |
-| **Video Call** | WebRTC (react-native-webrtc) |
-| **State** | Zustand |
-| **HTTP** | Axios |
+```bash
+cd server
+docker-compose down
+```
 
-## API Endpoints
+## Tài khoản mặc định
 
-| Method | Endpoint | Mô tả |
-|--------|----------|-------|
-| POST | `/api/auth/login` | Đăng nhập, trả về token |
-| GET | `/api/Account/users` | Danh sách users |
-
-## SignalR Hub: `/hubs`
-
-Kết nối: `ws://localhost:5000/hubs?token=<base64_token>`
-
-| Event (Server → Client) | Mô tả |
-|---|---|
-| `LoadFriends` | Danh sách users khi kết nối |
-| `UserStatusChanged` | Thay đổi trạng thái online |
-| `ReceiveMessage` | Nhận tin nhắn mới |
-| `LoadChatHistory` | Lịch sử chat |
-| `IncomingCall` | Cuộc gọi đến |
-| `CallAccepted/Rejected` | Phản hồi cuộc gọi |
-| `ReceiveOffer/Answer/Ice` | WebRTC signaling |
+| Tên | Số điện thoại | Mật khẩu |
+|-----|--------------|----------|
+| Nam | 0901111111 | 123 |
+| Hung | 0902222222 | 123 |
+| Lan | 0903333333 | 123 |
+| Minh | 0904444444 | 123 |

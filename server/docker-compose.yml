@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: videocall_db
+    restart: always
+    environment:
+      POSTGRES_DB: videocalldb
+      POSTGRES_USER: videocall_user
+      POSTGRES_PASSWORD: videocall_secret_password_2024
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U videocall_user -d videocalldb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: videocall_api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5228
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=videocalldb;Username=videocall_user;Password=videocall_secret_password_2024
+      - Jwt__Secret=VideoCallApp_SuperSecret_JWT_Key_2024_Min32Chars!
+      - Jwt__Issuer=VideoCallApp
+      - Jwt__Audience=VideoCallApp
+      - Jwt__AccessTokenExpirationMinutes=15
+      - Jwt__RefreshTokenExpirationDays=30
+    ports:
+      - "5228:5228"
+    volumes:
+      - upload_data:/app/wwwroot/uploads
+
+volumes:
+  pg_data:
+  upload_data:
