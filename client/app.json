@@ -27,6 +27,14 @@
     },
     "plugins": [
       "expo-router",
+      "expo-av",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép VideoCallApp truy cập ảnh của bạn",
+          "cameraPermission": "Cho phép VideoCallApp dùng camera"
+        }
+      ],
       [
         "@config-plugins/react-native-webrtc",
         {
