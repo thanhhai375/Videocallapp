@@ -121,6 +121,7 @@ namespace VideoCall.Infrastructure.Data
                     .HasForeignKey(r => r.ReaderId)
                     .OnDelete(DeleteBehavior.Cascade);
                 b.HasIndex(r => new { r.MessageId, r.ReaderId }).IsUnique();
+                b.HasQueryFilter(r => !r.Message.IsDeleted);
             });
 
             // ── MESSAGE REACTIONS ──────────────────────────────────
@@ -137,6 +138,7 @@ namespace VideoCall.Infrastructure.Data
                     .OnDelete(DeleteBehavior.Cascade);
                 // One reaction per user per message
                 b.HasIndex(r => new { r.MessageId, r.UserId, r.EmojiCode }).IsUnique();
+                b.HasQueryFilter(r => !r.Message.IsDeleted);
             });
 
             // ── CALL LOGS ─────────────────────────────────────────
