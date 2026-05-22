@@ -13,6 +13,7 @@ export interface Message {
   content: string;
   timestamp: number;    // Date.now()
   isSeen?: boolean;     // Trạng thái đã xem
+  messageType?: 'Text' | 'Image' | 'Audio'; // Loại tin nhắn
 }
 
 // ─── Incoming Call ────────────────────────────────────────

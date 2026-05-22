@@ -40,16 +40,17 @@ export default function ChatRoomScreen() {
     }
   }, [messages.length, id]);
 
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: string, type: 'Text' | 'Image' | 'Audio' = 'Text') => {
     if (id) {
       // Optimistic UI for own message
       useChatStore.getState().addMessage(id, {
-        senderId: 'ME', // Not actual DB ID, but we know it's ours because it doesn't match otherUser
+        senderId: 'ME',
         content,
+        messageType: type,
         timestamp: Date.now(),
       });
       await sendMessage(id, content);
-      
+
       // Scroll to bottom
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
@@ -135,6 +136,7 @@ export default function ChatRoomScreen() {
             return (
               <MessageBubble
                 content={item.content}
+                messageType={item.messageType}
                 isMine={isMine}
                 showAvatar={showAvatar}
                 senderName={name}
