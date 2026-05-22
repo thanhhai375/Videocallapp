@@ -67,8 +67,11 @@ export default function LoginScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Đăng ký thất bại");
-      await setAuth(data.accessToken, data.refreshToken, data.user);
-      router.replace("/(tabs)/chats");
+      
+      Alert.alert("Thành công", "Đăng ký thành công! Vui lòng đăng nhập.");
+      setTab('login');
+      setPassword('');
+      setConfirmPassword('');
     } catch (err: any) {
       Alert.alert("Đăng ký thất bại", err.message || "Không thể kết nối đến server");
     } finally {

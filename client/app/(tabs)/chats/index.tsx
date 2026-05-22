@@ -64,44 +64,18 @@ export default function ChatsScreen() {
       return timeB - timeA;
     });
 
-  const renderActiveFriend = ({ item, index }: { item: typeof users[0], index: number }) => {
-    if (index === 0) {
-      // Đầu tiên là nút Tạo tin
-      return (
-        <View style={{ flexDirection: 'row' }}>
-          <TouchableOpacity style={styles.activeFriendContainer}>
-            <View>
-              <Avatar name="My Story" size="lg" />
-              <View style={styles.addStoryBadge}>
-                <Ionicons name="add" size={14} color="#FFF" />
-              </View>
-            </View>
-            <Text style={styles.activeFriendName} numberOfLines={1}>Tạo tin</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.activeFriendContainer}
-            onPress={() => router.push(`/chat/${item.id}?name=${item.name}&connectionId=${item.connectionId || ''}` as any)}
-          >
-            <View style={styles.storyRing}>
-              <Avatar name={item.name} size="lg" />
-            </View>
-            <Text style={styles.activeFriendName} numberOfLines={1}>{item.name}</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    
-    return (
-      <TouchableOpacity 
-        style={styles.activeFriendContainer}
-        onPress={() => router.push(`/chat/${item.id}?name=${item.name}&connectionId=${item.connectionId || ''}` as any)}
-      >
+  const renderActiveFriend = ({ item }: { item: typeof users[0] }) => (
+    <TouchableOpacity
+      style={styles.activeFriendContainer}
+      onPress={() => router.push(`/chat/${item.id}?name=${item.name}&connectionId=${item.connectionId || ''}` as any)}
+    >
+      <View style={styles.storyRing}>
         <Avatar name={item.name} isOnline={true} size="lg" />
-        <Text style={styles.activeFriendName} numberOfLines={1}>{item.name}</Text>
-      </TouchableOpacity>
-    );
-  };
+      </View>
+      <Text style={styles.activeFriendName} numberOfLines={1}>{item.name}</Text>
+    </TouchableOpacity>
+  );
+
 
   return (
     <View style={styles.container}>
@@ -181,7 +155,7 @@ export default function ChatsScreen() {
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
-            data={activeFriends.length > 0 ? activeFriends : [{ id: 'mock', name: 'Mock', isOnline: true, connectionId: null } as any]}
+            data={activeFriends}
             keyExtractor={(item) => item.id}
             renderItem={renderActiveFriend}
             contentContainerStyle={styles.activeList}
