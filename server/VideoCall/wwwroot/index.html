@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Video Call App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/messenger.css">
+</head>
+<body>
+
+    <div class="app-container" id="appContainer">
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2 style="color: var(--primary-color); display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-video"></i> Video Call
+                </h2>
+                <div class="search-box">
+                    <input type="text" placeholder="Tìm bạn bè...">
+                    <i class="fas fa-search"></i>
+                </div>
+            </div>
+            <ul class="friend-list" id="friendList"></ul>
+        </div>
+
+        <div class="chat-area" id="chatArea">
+            <div id="welcomeScreen" class="welcome-screen">
+                <div class="logo-circle"><i class="fas fa-video"></i></div>
+                <h2>Chào mừng trở lại!</h2>
+                <p>Chọn một người bạn để gọi video ngay.</p>
+            </div>
+
+            <div id="chatInterface" class="chat-interface">
+                <div class="chat-header">
+                    <div class="chat-header-user">
+                        <button id="backToFriendsBtn" class="back-btn"><i class="fas fa-arrow-left"></i></button>
+                        <div class="avatar-wrapper">
+                            <div class="avatar" id="chatAvatar">?</div>
+                            <div class="status-dot online" id="chatStatusDot"></div>
+                        </div>
+                        <div class="user-details">
+                            <h3 id="chatName">User</h3>
+                            <p id="chatStatusText">Đang hoạt động</p>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <button title="Gọi thoại" id="btnStartVoiceCall" class="btn-call-action"><i class="fas fa-phone-alt"></i></button>
+                        <button title="Gọi Video" id="btnStartVideoCall" class="btn-call-action"><i class="fas fa-video"></i></button>
+                    </div>
+                </div>
+
+                <div class="messages-box"></div>
+
+                <div class="input-area">
+                    <input type="text" placeholder="Nhập tin nhắn...">
+                    <button><i class="fas fa-paper-plane"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="callModal" class="call-modal">
+        <div class="video-container">
+            <video id="remoteVideo" autoplay playsinline></video>
+            <video id="localVideo" autoplay muted playsinline></video>
+        </div>
+
+        <div class="call-controls-bar">
+            <button class="control-btn btn-toggle" id="toggleVideoBtn" title="Bật/Tắt Camera">
+                <i class="fas fa-video"></i>
+            </button>
+
+            <button class="control-btn btn-hangup" id="hangupBtn" title="Kết thúc">
+                <i class="fas fa-phone-slash"></i>
+            </button>
+
+            <button class="control-btn btn-toggle" id="toggleMuteBtn" title="Bật/Tắt Mic">
+                <i class="fas fa-microphone"></i>
+            </button>
+
+            <button class="control-btn btn-share" id="shareScreenBtn" title="Chia sẻ màn hình">
+                <i class="fas fa-desktop"></i>
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="/js/signaling-client.js?v=9"></script>
+</body>
+</html>
