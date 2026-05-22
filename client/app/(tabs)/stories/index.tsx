@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { useLocalSearchParams } from 'expo-router';
 import { Colors } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { useAuthStore } from '@features/auth/store/authStore';
@@ -40,8 +41,11 @@ interface StoryGroup {
 
 export default function StoriesScreen() {
   const insets = useSafeAreaInsets();
-  const { accessToken, userName } = useAuthStore();
+  const { accessToken } = useAuthStore();
+  const { openStoryUserId } = useLocalSearchParams<{ openStoryUserId?: string }>();
+  
   const [groups, setGroups] = useState<StoryGroup[]>([]);
+  const [myProfile, setMyProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -58,6 +62,13 @@ export default function StoriesScreen() {
 
   const authHeaders = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
 
+  const fetchProfile = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/profile`, { headers: authHeaders });
+      if (res.ok) setMyProfile(await res.json());
+    } catch {}
+  }, [accessToken]);
+
   const fetchStories = useCallback(async () => {
     try {
       const res = await fetch(`${API_URL}/stories`, { headers: authHeaders });
@@ -69,7 +80,19 @@ export default function StoriesScreen() {
     finally { setLoading(false); setRefreshing(false); }
   }, [accessToken]);
 
-  useEffect(() => { fetchStories(); }, [fetchStories]);
+  useEffect(() => { 
+    fetchProfile();
+    fetchStories(); 
+  }, [fetchProfile, fetchStories]);
+
+  useEffect(() => {
+    if (openStoryUserId && groups.length > 0) {
+      const targetGroup = groups.find(g => g.user.id === openStoryUserId);
+      if (targetGroup && !viewerStory) {
+        handleViewStory(targetGroup.stories[0], targetGroup);
+      }
+    }
+  }, [openStoryUserId, groups]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -158,29 +181,59 @@ export default function StoriesScreen() {
     ]);
   };
 
-  const renderStoryRing = ({ item }: { item: StoryGroup }) => {
-    const firstStory = item.stories[0];
-    const isOwn = item.stories.some(s => s.isOwn);
+  const renderGridItem = ({ item, index }: { item: any, index: number }) => {
+    if (item.isCreate) {
+      return (
+        <TouchableOpacity style={styles.storyCard} onPress={() => setCreateVisible(true)}>
+          <View style={styles.createCardBg}>
+            {myProfile?.profilePictureUrl ? (
+              <Image source={{ uri: myProfile.profilePictureUrl }} style={styles.createCardImg} />
+            ) : (
+              <View style={[styles.createCardImg, { backgroundColor: Colors.surfaceElevated, justifyContent: 'center', alignItems: 'center' }]}>
+                 <Ionicons name="person" size={40} color={Colors.textMuted} />
+              </View>
+            )}
+            <View style={styles.createCardPlusOverlay}>
+              <View style={styles.plusIconContainer}>
+                <Ionicons name="add" size={24} color="#000" />
+              </View>
+              <Text style={styles.createCardText}>Thêm vào tin</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    }
+
+    const group = item as StoryGroup;
+    const firstStory = group.stories[0];
+    const isOwn = group.stories.some(s => s.isOwn);
+
     return (
-      <TouchableOpacity
-        style={styles.storyRingContainer}
-        onPress={() => handleViewStory(firstStory, item)}
-      >
-        <View style={[styles.storyRing, item.hasUnseen && styles.storyRingUnseen]}>
-          {item.user.profilePictureUrl ? (
-            <Image source={{ uri: item.user.profilePictureUrl }} style={styles.storyRingImg} />
+      <TouchableOpacity style={styles.storyCard} onPress={() => handleViewStory(firstStory, group)}>
+        <View style={[styles.storyCardBg, { backgroundColor: firstStory.backgroundColor || '#000' }]}>
+          {firstStory.mediaUrl && firstStory.mediaType === 'Image' ? (
+            <Image source={{ uri: firstStory.mediaUrl }} style={styles.storyCardImg} />
           ) : (
-            <View style={[styles.storyRingPlaceholder, { backgroundColor: Colors.primary }]}>
-              <Text style={styles.storyRingInitial}>{item.user.username.charAt(0).toUpperCase()}</Text>
+            <Text style={styles.storyCardTextContent} numberOfLines={4}>
+              {firstStory.textContent}
+            </Text>
+          )}
+          <View style={styles.storyCardOverlay} />
+        </View>
+        
+        <View style={[styles.storyCardAvatarRing, group.hasUnseen && styles.storyCardAvatarUnseen]}>
+          {group.user.profilePictureUrl ? (
+            <Image source={{ uri: group.user.profilePictureUrl }} style={styles.storyCardAvatar} />
+          ) : (
+            <View style={[styles.storyCardAvatar, { backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' }]}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>{group.user.username.charAt(0).toUpperCase()}</Text>
             </View>
           )}
         </View>
-        <Text style={styles.storyRingName} numberOfLines={1}>
-          {isOwn ? 'Tin của bạn' : item.user.username}
+
+        <Text style={styles.storyCardName} numberOfLines={1}>
+          {isOwn ? 'Tin của bạn' : group.user.username}
         </Text>
-        {isOwn && (
-          <Text style={styles.storyViewCount}>{firstStory.viewCount} lượt xem</Text>
-        )}
       </TouchableOpacity>
     );
   };
@@ -193,52 +246,25 @@ export default function StoriesScreen() {
     );
   }
 
+  const gridData = [{ isCreate: true }, ...groups];
+
   return (
     <View style={[styles.container, { paddingTop: Math.max(insets.top, 20) }]}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Tin</Text>
-        <TouchableOpacity style={styles.headerBtn} onPress={() => setCreateVisible(true)}>
-          <Ionicons name="add-circle" size={30} color={Colors.primary} />
-        </TouchableOpacity>
       </View>
 
-      <ScrollView
+      <FlatList
+        data={gridData}
+        keyExtractor={(item, index) => item.isCreate ? 'create' : item.user.id}
+        numColumns={2}
+        renderItem={renderGridItem}
+        contentContainerStyle={styles.gridContainer}
+        columnWrapperStyle={styles.gridColumnWrapper}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchStories(); }} tintColor={Colors.primary} />}
-      >
-        {/* Create story */}
-        <TouchableOpacity style={styles.createStoryCard} onPress={() => setCreateVisible(true)}>
-          <View style={styles.createStoryIcon}>
-            <Ionicons name="add" size={28} color="#fff" />
-          </View>
-          <View>
-            <Text style={styles.createStoryTitle}>Tạo tin</Text>
-            <Text style={styles.createStorySubtitle}>Chia sẻ ảnh hoặc viết gì đó</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Friend stories */}
-        {groups.length > 0 ? (
-          <>
-            <Text style={styles.sectionLabel}>Tin của bạn bè</Text>
-            <FlatList
-              data={groups}
-              keyExtractor={g => g.user.id}
-              renderItem={renderStoryRing}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.storiesRow}
-            />
-          </>
-        ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="albums-outline" size={64} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>Chưa có tin nào</Text>
-            <Text style={styles.emptySubtitle}>Hãy là người đầu tiên đăng tin!</Text>
-          </View>
-        )}
-      </ScrollView>
+      />
 
       {/* Create Story Modal */}
       <Modal visible={createVisible} animationType="slide" onRequestClose={() => setCreateVisible(false)}>
@@ -359,35 +385,109 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Layout.spacing.lg, paddingBottom: 12,
   },
   headerTitle: { fontSize: 28, fontWeight: '800', color: Colors.text },
-  headerBtn: { padding: 4 },
-  createStoryCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    margin: Layout.spacing.lg, padding: 16,
-    backgroundColor: Colors.surfaceElevated, borderRadius: 16,
+  gridContainer: {
+    paddingHorizontal: 12,
+    paddingBottom: 20,
   },
-  createStoryIcon: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
+  gridColumnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  createStoryTitle: { color: Colors.text, fontSize: 16, fontWeight: '600' },
-  createStorySubtitle: { color: Colors.textSecondary, fontSize: 13, marginTop: 2 },
-  sectionLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600', marginLeft: 16, marginBottom: 12, textTransform: 'uppercase' },
-  storiesRow: { paddingHorizontal: 16, gap: 12 },
-  storyRingContainer: { alignItems: 'center', width: 80 },
-  storyRing: { width: 72, height: 72, borderRadius: 36, padding: 2, borderWidth: 2, borderColor: Colors.divider },
-  storyRingUnseen: { borderColor: Colors.primary },
-  storyRingImg: { width: '100%', height: '100%', borderRadius: 34 },
-  storyRingPlaceholder: { width: '100%', height: '100%', borderRadius: 34, justifyContent: 'center', alignItems: 'center' },
-  storyRingInitial: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
-  storyRingName: { color: Colors.text, fontSize: 12, marginTop: 6, textAlign: 'center' },
-  storyViewCount: { color: Colors.textMuted, fontSize: 10, textAlign: 'center' },
-  emptyState: { alignItems: 'center', marginTop: 80, paddingHorizontal: 40 },
-  emptyTitle: { color: Colors.text, fontSize: 20, fontWeight: 'bold', marginTop: 16 },
-  emptySubtitle: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 8 },
+  storyCard: {
+    width: (SCREEN_W - 36) / 2,
+    height: 250,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: Colors.surfaceElevated,
+    position: 'relative',
+  },
+  createCardBg: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  createCardImg: {
+    width: '100%',
+    height: 160,
+  },
+  createCardPlusOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  plusIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E4E6EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -18,
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  createCardText: {
+    color: '#000',
+    fontWeight: 'bold',
+    marginTop: 8,
+    fontSize: 13,
+  },
+  storyCardBg: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyCardImg: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  storyCardTextContent: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    padding: 12,
+  },
+  storyCardOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  storyCardAvatarRing: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    padding: 2,
+    borderWidth: 3,
+    borderColor: 'transparent',
+  },
+  storyCardAvatarUnseen: {
+    borderColor: '#0084FF',
+  },
+  storyCardAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+  storyCardName: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    right: 12,
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: -1, height: 1 },
+    textShadowRadius: 10
+  },
   // Create modal
   createModal: { flex: 1, backgroundColor: Colors.bg },
   createModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },

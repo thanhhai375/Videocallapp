@@ -49,7 +49,7 @@ export default function ChatRoomScreen() {
         messageType: type,
         timestamp: Date.now(),
       });
-      await sendMessage(id, content);
+      await sendMessage(id, content, type);
 
       // Scroll to bottom
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -67,7 +67,7 @@ export default function ChatRoomScreen() {
 
   const handleAudioCall = async () => {
     if (user?.connectionId && id) {
-      await callFriend(user.connectionId);
+      await callFriend(user.connectionId, 'Audio');
       router.push(`/call/${id}?name=${name}&connectionId=${user.connectionId}&isCaller=true`);
     } else {
       Alert.alert('Không thể gọi', 'Người dùng này đang ngoại tuyến.');

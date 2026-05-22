@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, Alert, Image } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,7 +52,26 @@ export default function ChatsScreen() {
     }
   };
 
-  const activeFriends = users.filter(u => u.isOnline && u.name !== userName);
+  const [stories, setStories] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    // Fetch stories to determine who has a story
+    const fetchStories = async () => {
+      try {
+        const res = await fetch(`${API_URL}/stories`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStories(data);
+        }
+      } catch (err) {}
+    };
+    if (accessToken) fetchStories();
+  }, [accessToken]);
+
+  const activeFriends = users.filter(u => u.name !== userName);
+  const activeListItems = [{ id: 'my-story', isMyStory: true }, ...activeFriends];
 
   const chatList = [...users]
     .filter(u => u.name !== userName && u.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -64,17 +83,56 @@ export default function ChatsScreen() {
       return timeB - timeA;
     });
 
-  const renderActiveFriend = ({ item }: { item: typeof users[0] }) => (
-    <TouchableOpacity
-      style={styles.activeFriendContainer}
-      onPress={() => router.push(`/chat/${item.id}?name=${item.name}&connectionId=${item.connectionId || ''}` as any)}
-    >
-      <View style={styles.storyRing}>
-        <Avatar name={item.name} isOnline={true} size="lg" />
-      </View>
-      <Text style={styles.activeFriendName} numberOfLines={1}>{item.name}</Text>
-    </TouchableOpacity>
-  );
+  const renderActiveFriend = ({ item }: { item: any }) => {
+    if (item.isMyStory) {
+      // My Story button
+      const myStoryGroup = stories.find(s => s.user.name === userName);
+      const hasMyStory = !!myStoryGroup && myStoryGroup.stories.length > 0;
+      return (
+        <TouchableOpacity
+          style={styles.activeFriendContainer}
+          onPress={() => {
+             router.push({ pathname: '/(tabs)/stories' });
+          }}
+        >
+          <View style={[styles.storyRing, hasMyStory ? styles.storyRingSeen : null]}>
+            <View style={{ position: 'relative' }}>
+              <Avatar name={userName || '?'} isOnline={false} size="lg" />
+              {!hasMyStory && (
+                <View style={styles.addStoryBadge}>
+                  <Ionicons name="add" size={16} color="#FFF" />
+                </View>
+              )}
+            </View>
+          </View>
+          <Text style={styles.activeFriendName} numberOfLines={1}>Tin của bạn</Text>
+        </TouchableOpacity>
+      );
+    }
+
+    // Check if this user has a story
+    const userStoryGroup = stories.find(s => s.user.id === item.id);
+    const hasStory = !!userStoryGroup;
+    const hasUnseen = hasStory && userStoryGroup.hasUnseen;
+
+    return (
+      <TouchableOpacity
+        style={styles.activeFriendContainer}
+        onPress={() => {
+          if (hasStory) {
+             router.push({ pathname: '/(tabs)/stories', params: { openStoryUserId: item.id } });
+          } else {
+             router.push(`/chat/${item.id}?name=${item.name}&connectionId=${item.connectionId || ''}` as any);
+          }
+        }}
+      >
+        <View style={[styles.storyRing, hasUnseen ? styles.storyRingUnseen : (hasStory ? styles.storyRingSeen : null)]}>
+          <Avatar name={item.name} isOnline={item.isOnline} size="lg" />
+        </View>
+        <Text style={styles.activeFriendName} numberOfLines={1}>{item.name}</Text>
+      </TouchableOpacity>
+    );
+  };
 
 
   return (
@@ -155,8 +213,8 @@ export default function ChatsScreen() {
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
-            data={activeFriends}
-            keyExtractor={(item) => item.id}
+            data={activeListItems}
+            keyExtractor={(item: any) => item.id}
             renderItem={renderActiveFriend}
             contentContainerStyle={styles.activeList}
           />
@@ -172,16 +230,16 @@ export default function ChatsScreen() {
               timeStr = `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
             }
 
-            // Fake read status to demonstrate UI
-            const unreadCount = index === 0 ? 3 : 0; 
+            // Get real unread status from store if needed. For now, 0.
+            const unreadCount = 0; 
 
             return (
               <ConversationItem
                 key={user.id}
                 name={user.name}
                 isOnline={user.isOnline}
-                lastMessage={unreadCount > 0 ? `${unreadCount} tin nhắn mới` : lastMsg?.content}
-                time={timeStr || '14:00'}
+                lastMessage={lastMsg?.content || 'Chưa có tin nhắn'}
+                time={timeStr || ''}
                 unreadCount={unreadCount}
                 onPress={() => router.push(`/chat/${user.id}?name=${user.name}&connectionId=${user.connectionId || ''}` as any)}
               />
@@ -276,7 +334,13 @@ const styles = StyleSheet.create({
     padding: 2,
     borderRadius: 40,
     borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  storyRingUnseen: {
     borderColor: '#0084FF',
+  },
+  storyRingSeen: {
+    borderColor: Colors.divider,
   },
   chatListSection: {
     paddingTop: Layout.spacing.sm,

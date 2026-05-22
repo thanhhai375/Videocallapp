@@ -9,9 +9,9 @@ import { User, IncomingCall } from '@shared/types';
 interface UseSignalRReturn {
   isConnected: boolean;
   incomingCall: IncomingCall | null;
-  sendMessage: (targetId: string, content: string) => Promise<void>;
+  sendMessage: (targetId: string, content: string, messageType?: string) => Promise<void>;
   getChatHistory: (targetId: string) => Promise<void>;
-  callFriend: (targetConnectionId: string) => Promise<void>;
+  callFriend: (targetConnectionId: string, callType?: string) => Promise<void>;
   acceptCall: (callerConnectionId: string) => Promise<void>;
   rejectCall: (callerConnectionId: string) => Promise<void>;
   endCall: (targetConnectionId: string) => Promise<void>;
@@ -47,7 +47,10 @@ export function useSignalR(): UseSignalRReturn {
     if (!accessToken) return;
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${HUB_URL}?access_token=${accessToken}`)
+      .withUrl(`${HUB_URL}?access_token=${accessToken}`, {
+        skipNegotiation: true,
+        transport: signalR.HttpTransportType.WebSockets
+      })
       .withAutomaticReconnect()
       .configureLogging(signalR.LogLevel.Warning)
       .build();
@@ -150,13 +153,13 @@ export function useSignalR(): UseSignalRReturn {
   return {
     isConnected,
     incomingCall,
-    sendMessage: async (targetId, content) => {
+    sendMessage: async (targetId, content, messageType = "Text") => {
       // Khi mình gửi, server sẽ tự echo lại bằng ReceiveMessage
       // Nhưng để app nhanh nhẹn, ta có thể addMessage ngay lập tức (optimistic UI), 
       // Tuy nhiên server của bạn đã có: await Clients.Caller.SendAsync("ReceiveMessage", sender.Id, content);
       // => Tức là server sẽ gọi lại ReceiveMessage cho TẤT CẢ các bên, bao gồm cả người gửi!
       // Nên ta KHÔNG cần gọi addMessage ở đây. (Vì sẽ bị duplicate).
-      await invoke("SendMessage", targetId, content);
+      await invoke("SendMessage", targetId, content, messageType);
     },
     getChatHistory: async (targetId) => {
       // Tùy chỉnh LoadChatHistory để pass targetId
@@ -169,7 +172,7 @@ export function useSignalR(): UseSignalRReturn {
       
       await invoke("GetChatHistory", targetId);
     },
-    callFriend: (targetConnectionId) => invoke("CallFriend", targetConnectionId),
+    callFriend: (targetConnectionId, callType = "Video") => invoke("CallFriend", targetConnectionId, callType),
     acceptCall: (callerConnectionId) => {
       setIncomingCall(null);
       return invoke("AcceptCall", callerConnectionId);

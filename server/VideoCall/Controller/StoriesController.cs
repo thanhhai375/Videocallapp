@@ -40,7 +40,7 @@ namespace VideoCall.Controller
             var stories = await _db.Stories
                 .Include(s => s.User)
                 .Include(s => s.Views)
-                .Where(s => friendIds.Contains(s.UserId))
+                .Where(s => friendIds.Contains(s.UserId) && s.ExpiresAt > DateTime.UtcNow)
                 .OrderByDescending(s => s.CreatedAt)
                 .Select(s => new
                 {

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  TextInput, Alert, ActivityIndicator, Image, RefreshControl
+  TextInput, Alert, ActivityIndicator, Image, RefreshControl,
+  Switch, Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { useAuthStore } from '@features/auth/store/authStore';
@@ -28,11 +30,17 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [editing, setEditing] = useState(false);
+  
+  // Update Modal state
+  const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editBio, setEditBio] = useState('');
+
+  // Preferences state
+  const [isDarkMode, setIsDarkMode] = useState(true); // Default dark
+  const [isActiveStatus, setIsActiveStatus] = useState(true);
 
   const authHeaders = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
 
@@ -49,9 +57,14 @@ export default function ProfileScreen() {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  useEffect(() => { fetchProfile(); }, [accessToken]);
+  useEffect(() => { 
+    fetchProfile(); 
+    // Load local prefs
+    AsyncStorage.getItem('darkMode').then(v => { if (v !== null) setIsDarkMode(v === 'true'); });
+    AsyncStorage.getItem('activeStatus').then(v => { if (v !== null) setIsActiveStatus(v === 'true'); });
+  }, [accessToken]);
 
-  const handleSave = async () => {
+  const handleSaveInfo = async () => {
     setSaving(true);
     try {
       const res = await fetch(`${API_URL}/profile`, {
@@ -62,7 +75,7 @@ export default function ProfileScreen() {
       const data = await res.json();
       if (res.ok) {
         Alert.alert('✅', data.message);
-        setEditing(false);
+        setEditModalVisible(false);
         fetchProfile();
       } else {
         Alert.alert('Lỗi', data.message);
@@ -111,14 +124,23 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Đăng xuất', 'Bạn có chắc muốn đăng xuất?', [
+    Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
       { text: 'Hủy', style: 'cancel' },
       { text: 'Đăng xuất', style: 'destructive', onPress: () => logout() },
     ]);
   };
 
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' });
+  const toggleDarkMode = (val: boolean) => {
+    setIsDarkMode(val);
+    AsyncStorage.setItem('darkMode', String(val));
+    // Implementation of actual theme switching omitted for brevity
+  };
+
+  const toggleActiveStatus = (val: boolean) => {
+    setIsActiveStatus(val);
+    AsyncStorage.setItem('activeStatus', String(val));
+    // Would sync with server or signalR in a full implementation
+  };
 
   if (loading) {
     return (
@@ -128,114 +150,120 @@ export default function ProfileScreen() {
     );
   }
 
+  const renderSettingItem = (icon: any, title: string, subtitle?: string, action?: () => void, rightElement?: React.ReactNode, danger?: boolean) => (
+    <TouchableOpacity style={styles.settingItem} onPress={action} disabled={!action}>
+      <View style={[styles.settingIconBox, danger && { backgroundColor: 'rgba(255, 68, 68, 0.1)' }]}>
+        <Ionicons name={icon} size={22} color={danger ? Colors.danger : Colors.text} />
+      </View>
+      <View style={styles.settingTextContainer}>
+        <Text style={[styles.settingTitle, danger && { color: Colors.danger }]}>{title}</Text>
+        {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+      </View>
+      {rightElement ? rightElement : (action ? <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} /> : null)}
+    </TouchableOpacity>
+  );
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={{ paddingBottom: 40 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchProfile(); }} tintColor={Colors.primary} />}
-    >
-      {/* Header */}
+    <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-        <Text style={styles.headerTitle}>Hồ sơ</Text>
-        {!editing ? (
-          <TouchableOpacity onPress={() => setEditing(true)} style={styles.editBtn}>
-            <Ionicons name="pencil" size={20} color={Colors.primary} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity onPress={() => setEditing(false)} style={styles.editBtn}>
-            <Ionicons name="close" size={22} color={Colors.textSecondary} />
-          </TouchableOpacity>
-        )}
+        <Text style={styles.headerTitle}>Menu</Text>
       </View>
 
-      {/* Avatar */}
-      <View style={styles.avatarSection}>
-        <TouchableOpacity onPress={handleChangeAvatar} disabled={uploadingAvatar}>
-          {profile?.profilePictureUrl ? (
-            <Image source={{ uri: profile.profilePictureUrl }} style={styles.avatarImg} />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitial}>
-                {profile?.username?.charAt(0).toUpperCase() || '?'}
-              </Text>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchProfile(); }} tintColor={Colors.primary} />}
+      >
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <TouchableOpacity onPress={handleChangeAvatar} disabled={uploadingAvatar}>
+            <View style={styles.avatarContainer}>
+              {profile?.profilePictureUrl ? (
+                <Image source={{ uri: profile.profilePictureUrl }} style={styles.avatarImg} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarInitial}>{profile?.username?.charAt(0).toUpperCase() || '?'}</Text>
+                </View>
+              )}
+              <View style={styles.avatarCameraBadge}>
+                {uploadingAvatar ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={14} color="#fff" />}
+              </View>
             </View>
+          </TouchableOpacity>
+          <View style={styles.profileInfoBox}>
+            <Text style={styles.profileName}>{profile?.username}</Text>
+            <Text style={styles.profilePhone}>{profile?.phoneNumber}</Text>
+          </View>
+        </View>
+
+        {/* Section: Account */}
+        <Text style={styles.sectionHeader}>Tài khoản</Text>
+        <View style={styles.sectionContainer}>
+          {renderSettingItem('person-outline', 'Cập nhật thông tin', 'Tên, Tiểu sử', () => setEditModalVisible(true))}
+          {renderSettingItem('shield-checkmark-outline', 'Bảo mật', 'Đổi mật khẩu', () => Alert.alert('Thông báo', 'Tính năng đang được phát triển!'))}
+        </View>
+
+        {/* Section: Preferences */}
+        <Text style={styles.sectionHeader}>Tùy chọn</Text>
+        <View style={styles.sectionContainer}>
+          {renderSettingItem('moon-outline', 'Chế độ tối', 'Giao diện ứng dụng', undefined, 
+            <Switch value={isDarkMode} onValueChange={toggleDarkMode} trackColor={{ true: Colors.primary }} />
           )}
-          <View style={styles.avatarEditBadge}>
-            {uploadingAvatar
-              ? <ActivityIndicator size="small" color="#fff" />
-              : <Ionicons name="camera" size={14} color="#fff" />}
-          </View>
-        </TouchableOpacity>
-
-        {editing ? (
-          <TextInput
-            style={styles.nameInput}
-            value={editUsername}
-            onChangeText={setEditUsername}
-            placeholder="Tên hiển thị"
-            placeholderTextColor={Colors.textMuted}
-          />
-        ) : (
-          <Text style={styles.profileName}>{profile?.username}</Text>
-        )}
-        <Text style={styles.profilePhone}>{profile?.phoneNumber}</Text>
-      </View>
-
-      {/* Bio */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Giới thiệu</Text>
-        {editing ? (
-          <TextInput
-            style={styles.bioInput}
-            value={editBio}
-            onChangeText={setEditBio}
-            placeholder="Thêm giới thiệu về bạn..."
-            placeholderTextColor={Colors.textMuted}
-            multiline
-            maxLength={150}
-          />
-        ) : (
-          <Text style={styles.bioText}>{profile?.bio || 'Chưa có giới thiệu'}</Text>
-        )}
-      </View>
-
-      {/* Info */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Thông tin</Text>
-        <View style={styles.infoRow}>
-          <Ionicons name="call-outline" size={18} color={Colors.textSecondary} />
-          <Text style={styles.infoText}>{profile?.phoneNumber}</Text>
+          {renderSettingItem('ellipse-outline', 'Trạng thái hoạt động', 'Hiển thị khi bạn online', undefined, 
+            <Switch value={isActiveStatus} onValueChange={toggleActiveStatus} trackColor={{ true: Colors.primary }} />
+          )}
+          {renderSettingItem('notifications-outline', 'Thông báo & Âm thanh', 'Nhạc chuông, rung', () => Alert.alert('Thông báo', 'Tính năng đang được phát triển!'))}
         </View>
-        {profile?.email && (
-          <View style={styles.infoRow}>
-            <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} />
-            <Text style={styles.infoText}>{profile?.email}</Text>
-          </View>
-        )}
-        <View style={styles.infoRow}>
-          <Ionicons name="calendar-outline" size={18} color={Colors.textSecondary} />
-          <Text style={styles.infoText}>Tham gia {profile?.createdAt ? formatDate(profile.createdAt) : ''}</Text>
+
+        {/* Section: Danger Zone */}
+        <View style={[styles.sectionContainer, { marginTop: 24 }]}>
+          {renderSettingItem('log-out-outline', 'Đăng xuất', undefined, handleLogout, undefined, true)}
         </View>
-      </View>
 
-      {/* Save / Logout */}
-      {editing && (
-        <TouchableOpacity
-          style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-          onPress={handleSave}
-          disabled={saving}
-        >
-          {saving
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.saveBtnText}>Lưu thay đổi</Text>}
-        </TouchableOpacity>
-      )}
+      </ScrollView>
 
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
-        <Text style={styles.logoutText}>Đăng xuất</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      {/* Edit Profile Modal */}
+      <Modal visible={isEditModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chỉnh sửa thông tin</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <Text style={styles.inputLabel}>Tên hiển thị</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={editUsername}
+              onChangeText={setEditUsername}
+              placeholder="Nhập tên của bạn"
+              placeholderTextColor={Colors.textMuted}
+            />
+
+            <Text style={styles.inputLabel}>Tiểu sử</Text>
+            <TextInput
+              style={[styles.modalInput, { height: 80, textAlignVertical: 'top' }]}
+              value={editBio}
+              onChangeText={setEditBio}
+              placeholder="Thêm vài dòng giới thiệu..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+            />
+
+            <TouchableOpacity 
+              style={[styles.saveBtn, saving && { opacity: 0.7 }]} 
+              onPress={handleSaveInfo}
+              disabled={saving}
+            >
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Lưu thay đổi</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+    </View>
   );
 }
 
@@ -243,50 +271,128 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Layout.spacing.lg, paddingBottom: Layout.spacing.md,
+    paddingHorizontal: Layout.spacing.lg, paddingBottom: 12,
   },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: Colors.text },
-  editBtn: { padding: 8 },
-  avatarSection: { alignItems: 'center', paddingVertical: 24 },
-  avatarImg: { width: 96, height: 96, borderRadius: 48 },
+  headerTitle: { fontSize: 28, fontWeight: '800', color: Colors.text },
+  profileCard: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    marginBottom: 8,
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatarImg: { width: 100, height: 100, borderRadius: 50 },
   avatarPlaceholder: {
-    width: 96, height: 96, borderRadius: 48,
+    width: 100, height: 100, borderRadius: 50,
     backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
   },
   avatarInitial: { color: '#fff', fontSize: 40, fontWeight: 'bold' },
-  avatarEditBadge: {
+  avatarCameraBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center',
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.surfaceElevated, justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: Colors.bg,
   },
-  profileName: { color: Colors.text, fontSize: 22, fontWeight: 'bold', marginTop: 12 },
-  profilePhone: { color: Colors.textSecondary, fontSize: 14, marginTop: 4 },
-  nameInput: {
-    color: Colors.text, fontSize: 22, fontWeight: 'bold', marginTop: 12,
-    borderBottomWidth: 1, borderBottomColor: Colors.primary,
-    paddingVertical: 4, minWidth: 200, textAlign: 'center',
+  profileInfoBox: {
+    alignItems: 'center',
   },
-  section: { paddingHorizontal: Layout.spacing.lg, marginBottom: 20 },
-  sectionLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600', textTransform: 'uppercase', marginBottom: 10 },
-  bioText: { color: Colors.text, fontSize: 15, lineHeight: 22 },
-  bioInput: {
-    color: Colors.text, fontSize: 15, lineHeight: 22,
-    backgroundColor: Colors.surfaceInput, borderRadius: 10,
-    padding: 12, minHeight: 80, textAlignVertical: 'top',
+  profileName: { color: Colors.text, fontSize: 24, fontWeight: 'bold' },
+  profilePhone: { color: Colors.textSecondary, fontSize: 15, marginTop: 4 },
+  
+  sectionHeader: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    paddingHorizontal: Layout.spacing.lg,
+    marginBottom: 8,
+    marginTop: 16,
   },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  infoText: { color: Colors.text, fontSize: 15 },
+  sectionContainer: {
+    backgroundColor: Colors.surfaceElevated,
+    marginHorizontal: Layout.spacing.md,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  settingIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  settingTextContainer: {
+    flex: 1,
+  },
+  settingTitle: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  settingSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.surfaceElevated,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    minHeight: 400,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  inputLabel: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  modalInput: {
+    backgroundColor: Colors.surfaceInput,
+    color: Colors.text,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    marginBottom: 20,
+  },
   saveBtn: {
-    marginHorizontal: Layout.spacing.lg, marginBottom: 16,
-    backgroundColor: Colors.primary, padding: 14, borderRadius: 12, alignItems: 'center',
+    backgroundColor: Colors.primary,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
   },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, marginHorizontal: Layout.spacing.lg, marginTop: 8,
-    padding: 14, borderRadius: 12, borderWidth: 1, borderColor: Colors.danger,
+  saveBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
-  logoutText: { color: Colors.danger, fontSize: 16, fontWeight: '600' },
 });
