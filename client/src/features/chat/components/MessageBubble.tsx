@@ -1,39 +1,43 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { Colors } from '@shared/constants/colors';
+import { Avatar } from '@shared/components/Avatar';
 import { Layout } from '@shared/constants/layout';
 
 interface MessageBubbleProps {
   content: string;
   isMine: boolean;
-  showAvatar?: boolean; // For grouping messages
-  senderName?: string;  // First letter of name if avatar is shown
-  isSeen?: boolean;     // Show tiny avatar below the bubble
+  showAvatar?: boolean;
+  senderName?: string;
+  isSeen?: boolean;
 }
 
-export function MessageBubble({ content, isMine, showAvatar = false, senderName = '?', isSeen = false }: MessageBubbleProps) {
-  return (
-    <View style={[styles.container, isMine ? styles.myContainer : styles.theirContainer]}>
-      
-      {!isMine && showAvatar && (
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{senderName.charAt(0).toUpperCase()}</Text>
-        </View>
-      )}
-      
-      {!isMine && !showAvatar && <View style={styles.avatarSpacer} />}
+export function MessageBubble({ content, isMine, showAvatar, senderName, isSeen }: MessageBubbleProps) {
+  const isImage = content.startsWith('http') && (content.match(/\.(jpeg|jpg|gif|png)$/) != null || content.includes('/uploads/'));
 
-      <View style={[styles.bubble, isMine ? styles.myBubble : styles.theirBubble]}>
-        <Text style={[styles.text, isMine ? styles.myText : styles.theirText]}>
-          {content}
-        </Text>
-      </View>
-      
-      {isMine && isSeen && (
-        <View style={styles.seenAvatar}>
-          <Text style={styles.seenAvatarText}>{senderName.charAt(0).toUpperCase()}</Text>
+  return (
+    <View style={[styles.container, isMine ? styles.mineContainer : styles.theirsContainer]}>
+      {!isMine && (
+        <View style={styles.avatarWrap}>
+          {showAvatar && <Avatar name={senderName || '?'} size="sm" />}
         </View>
       )}
+      <View style={styles.contentWrap}>
+        {isImage ? (
+          <Image source={{ uri: content }} style={styles.imageBubble} resizeMode="cover" />
+        ) : (
+          <View style={[styles.bubble, isMine ? styles.mineBubble : styles.theirsBubble]}>
+            <Text style={[styles.text, isMine ? styles.mineText : styles.theirsText]}>
+              {content}
+            </Text>
+          </View>
+        )}
+        {isSeen && (
+          <View style={styles.seenContainer}>
+            <Avatar name={senderName || '?'} size="sm" />
+          </View>
+        )}
+      </View>
     </View>
   );
 }
@@ -41,72 +45,55 @@ export function MessageBubble({ content, isMine, showAvatar = false, senderName 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
+    marginBottom: Layout.spacing.sm,
+    paddingHorizontal: Layout.spacing.sm,
     alignItems: 'flex-end',
-    marginBottom: 4,
-    paddingHorizontal: Layout.spacing.lg,
   },
-  myContainer: {
+  mineContainer: {
     justifyContent: 'flex-end',
   },
-  theirContainer: {
+  theirsContainer: {
     justifyContent: 'flex-start',
   },
-  bubble: {
+  avatarWrap: {
+    width: 28,
+    marginRight: 8,
+    justifyContent: 'flex-end',
+  },
+  contentWrap: {
     maxWidth: '75%',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+  },
+  bubble: {
+    paddingHorizontal: Layout.spacing.md,
+    paddingVertical: Layout.spacing.sm,
     borderRadius: 18,
   },
-  myBubble: {
-    backgroundColor: Colors.myBubble,
+  mineBubble: {
+    backgroundColor: Colors.primary,
     borderBottomRightRadius: 4,
   },
-  theirBubble: {
-    backgroundColor: Colors.theirBubble,
+  theirsBubble: {
+    backgroundColor: Colors.surfaceInput,
     borderBottomLeftRadius: 4,
   },
   text: {
     fontSize: 16,
     lineHeight: 22,
   },
-  myText: {
-    color: Colors.myBubbleText,
+  mineText: {
+    color: '#FFF',
   },
-  theirText: {
-    color: Colors.theirBubbleText,
+  theirsText: {
+    color: Colors.text,
   },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  seenContainer: {
+    alignSelf: 'flex-end',
+    marginTop: 4,
+  },
+  imageBubble: {
+    width: 200,
+    height: 250,
+    borderRadius: 16,
     backgroundColor: Colors.surfaceInput,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  avatarText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  avatarSpacer: {
-    width: 28,
-    marginRight: 8,
-  },
-  seenAvatar: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: Colors.surfaceInput,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'absolute',
-    bottom: -16,
-    right: 16,
-  },
-  seenAvatarText: {
-    color: Colors.textSecondary,
-    fontSize: 8,
-    fontWeight: 'bold',
   },
 });

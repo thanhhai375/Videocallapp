@@ -59,14 +59,16 @@ export function useWebRTC(targetConnectionId: string | null) {
     });
 
     // Handle remote stream
-    pc.ontrack = (event) => {
+    // @ts-ignore
+    pc.ontrack = (event: any) => {
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
       }
     };
 
     // Handle ICE candidates
-    pc.onicecandidate = (event) => {
+    // @ts-ignore
+    pc.onicecandidate = (event: any) => {
       if (event.candidate && targetConnectionId) {
         sendIce(targetConnectionId, event.candidate.toJSON());
       }
@@ -131,7 +133,7 @@ export function useWebRTC(targetConnectionId: string | null) {
     if (onReceiveIce) {
       try {
         const candidate = new RTCIceCandidate(onReceiveIce);
-        pcRef.current.addIceCandidate(candidate);
+        pcRef.current.addIceCandidate(candidate as any);
       } catch (err) {
         console.error('Failed to add ICE candidate', err);
       }

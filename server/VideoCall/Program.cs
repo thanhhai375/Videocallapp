@@ -9,10 +9,10 @@ builder.Services.AddSingleton<IRepository<User>>(sp =>
 {
     var users = new List<User>
     {
-        new("Nam", BCrypt.Net.BCrypt.HashPassword("123")),
-        new("Hung", BCrypt.Net.BCrypt.HashPassword("123")), 
-        new("Lan", BCrypt.Net.BCrypt.HashPassword("123")),
-        new("Minh", BCrypt.Net.BCrypt.HashPassword("123"))
+        new("Nam", BCrypt.Net.BCrypt.HashPassword("123"), "0901111111"),
+        new("Hung", BCrypt.Net.BCrypt.HashPassword("123"), "0902222222"), 
+        new("Lan", BCrypt.Net.BCrypt.HashPassword("123"), "0903333333"),
+        new("Minh", BCrypt.Net.BCrypt.HashPassword("123"), "0904444444")
     };
     return new InMemoryRepository<User>(users);
 });

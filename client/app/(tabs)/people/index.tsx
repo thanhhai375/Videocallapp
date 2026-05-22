@@ -1,34 +1,40 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { useUserStore } from '@features/contacts/store/userStore';
+import { useAuthStore } from '@features/auth/store/authStore';
 import { Avatar } from '@shared/components/Avatar';
-import { IconButton } from '@shared/components/IconButton';
 
 export default function PeopleScreen() {
   const { users } = useUserStore();
-  const activeFriends = users.filter((u) => u.isOnline);
+  const { userName } = useAuthStore();
+  const insets = useSafeAreaInsets();
+  const activeFriends = users.filter((u) => u.isOnline && u.name !== userName);
 
   const renderItem = ({ item }: { item: typeof users[0] }) => (
     <TouchableOpacity 
       style={styles.personItem}
-      onPress={() => router.push(`/(tabs)/chats/${item.id}?name=${item.name}&connectionId=${item.connectionId || ''}`)}
+      onPress={() => router.push(`/chat/${item.id}?name=${item.name}&connectionId=${item.connectionId || ''}` as any)}
     >
       <Avatar name={item.name} isOnline={item.isOnline} size="md" />
       <Text style={styles.personName}>{item.name}</Text>
       <View style={styles.waveBtn}>
-        <Text style={styles.waveIcon}>👋</Text>
+        <Ionicons name="hand-right" size={20} color={Colors.textSecondary} />
       </View>
     </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
         <Text style={styles.headerTitle}>People</Text>
-        <IconButton icon="👥" onPress={() => {}} backgroundColor="transparent" size={32} />
+        <TouchableOpacity style={styles.iconButton}>
+          <Ionicons name="people" size={24} color={Colors.text} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.activeHeader}>
@@ -58,13 +64,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: Layout.spacing.lg,
-    paddingTop: 60,
     paddingBottom: Layout.spacing.md,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: Colors.text,
+  },
+  iconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.surfaceElevated,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   activeHeader: {
     paddingHorizontal: Layout.spacing.lg,
@@ -98,9 +111,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceInput,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  waveIcon: {
-    fontSize: 18,
   },
   emptyText: {
     color: Colors.textSecondary,

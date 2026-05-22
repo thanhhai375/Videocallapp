@@ -51,11 +51,7 @@ export function ConversationItem({
       </View>
 
       {isUnread && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadText}>
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </Text>
-        </View>
+        <View style={styles.unreadBadge} />
       )}
     </TouchableOpacity>
   );
@@ -66,7 +62,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Layout.spacing.lg,
-    paddingVertical: Layout.spacing.md,
+    paddingVertical: 10,
   },
   content: {
     flex: 1,
@@ -74,13 +70,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   name: {
-    fontSize: 17,
+    fontSize: 16,
     color: Colors.text,
-    fontWeight: '500',
-    marginBottom: 4,
+    fontWeight: '400',
+    marginBottom: 2,
   },
   nameUnread: {
     fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   bottomRow: {
     flexDirection: 'row',
@@ -92,30 +89,22 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   messageUnread: {
-    color: Colors.text,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   time: {
     fontSize: 14,
-    color: Colors.textMuted,
+    color: Colors.textSecondary,
   },
   timeUnread: {
-    color: Colors.text,
+    color: '#FFFFFF',
     fontWeight: 'bold',
   },
   unreadBadge: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
+    backgroundColor: '#0084FF',
+    borderRadius: 8,
+    width: 12,
+    height: 12,
     marginLeft: Layout.spacing.md,
-  },
-  unreadText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
 });

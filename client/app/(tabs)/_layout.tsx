@@ -1,5 +1,7 @@
-import { Text } from 'react-native';
+import React from 'react';
+import { View, Text, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@shared/constants/colors';
 
 export default function TabsLayout() {
@@ -7,51 +9,62 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerStyle: {
-          backgroundColor: Colors.surface,
+          backgroundColor: Colors.bg,
           shadowColor: 'transparent', // iOS
           elevation: 0, // Android
         },
         headerTintColor: Colors.text,
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          fontSize: 24,
-        },
-        headerTitleAlign: 'left',
         tabBarStyle: {
-          backgroundColor: Colors.surface,
-          borderTopColor: Colors.divider,
+          backgroundColor: Colors.bg,
+          borderTopColor: '#3E4042', // Messenger dark mode divider
+          borderTopWidth: 0.5,
         },
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.textSecondary,
+        tabBarInactiveTintColor: Colors.textMuted,
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '600',
+        },
       }}
     >
       <Tabs.Screen
         name="chats"
         options={{
-          title: 'Chats',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>💬</Text>,
-          headerShown: false, // We will build a custom header inside chats/index
+          title: 'Đoạn chat',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "chatbubble" : "chatbubble-outline"} size={26} color={color} />
+          ),
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="people"
         options={{
-          title: 'People',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>👥</Text>,
+          title: 'Tin',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "albums" : "albums-outline"} size={26} color={color} />
+          ),
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="calls"
         options={{
-          title: 'Calls',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📞</Text>,
+          title: 'Thông báo',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "notifications" : "notifications-outline"} size={26} color={color} />
+          ),
+          headerShown: false,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>⚙️</Text>,
+          title: 'Menu',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "menu" : "menu-outline"} size={32} color={color} />
+          ),
+          headerShown: false,
         }}
       />
     </Tabs>

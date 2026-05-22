@@ -45,7 +45,6 @@ export function Avatar({ name, isOnline = false, size = 'md' }: AvatarProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    alignSelf: 'flex-start',
   },
   avatar: {
     backgroundColor: Colors.surfaceInput,

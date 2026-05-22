@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useSignalR } from '@shared/hooks/useSignalR';
 import { useChatStore } from '@features/chat/store/chatStore';
 import { useAuthStore } from '@features/auth/store/authStore';
@@ -9,7 +10,6 @@ import { Colors } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { ChatInput } from '@features/chat/components/ChatInput';
 import { MessageBubble } from '@features/chat/components/MessageBubble';
-import { IconButton } from '@shared/components/IconButton';
 import { Avatar } from '@shared/components/Avatar';
 
 export default function ChatRoomScreen() {
@@ -59,6 +59,17 @@ export default function ChatRoomScreen() {
     if (user?.connectionId && id) {
       await callFriend(user.connectionId);
       router.push(`/call/${id}?name=${name}&connectionId=${user.connectionId}&isCaller=true`);
+    } else {
+      Alert.alert('Không thể gọi', 'Người dùng này đang ngoại tuyến.');
+    }
+  };
+
+  const handleAudioCall = async () => {
+    if (user?.connectionId && id) {
+      await callFriend(user.connectionId);
+      router.push(`/call/${id}?name=${name}&connectionId=${user.connectionId}&isCaller=true`);
+    } else {
+      Alert.alert('Không thể gọi', 'Người dùng này đang ngoại tuyến.');
     }
   };
 
@@ -67,28 +78,39 @@ export default function ChatRoomScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <IconButton icon="⬅️" onPress={() => router.back()} backgroundColor="transparent" color={Colors.primary} size={32} />
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+            <Ionicons name="chevron-back" size={30} color={Colors.primary} />
+          </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerName}>{name}</Text>
-            {isOnline && <Text style={styles.headerStatus}>Active now</Text>}
+            <Avatar name={name || '?'} isOnline={isOnline} size="sm" />
+            <View style={styles.headerTextWrap}>
+              <Text style={styles.headerName}>{name}</Text>
+              {isOnline && <Text style={styles.headerStatus}>Đang hoạt động</Text>}
+            </View>
           </View>
         </View>
         <View style={styles.headerRight}>
-          <IconButton icon="📞" onPress={() => {}} backgroundColor="transparent" color={Colors.primary} size={32} />
-          <IconButton 
-            icon="📹" 
-            onPress={handleVideoCall} 
-            backgroundColor="transparent" 
-            color={user?.connectionId ? Colors.primary : Colors.textMuted} 
-            size={32} 
-            style={{ marginLeft: 8 }} 
-          />
+          <TouchableOpacity style={styles.iconButtonRight} onPress={handleAudioCall}>
+            <Ionicons 
+              name="call" 
+              size={24} 
+              color={user?.connectionId ? Colors.primary : Colors.textMuted} 
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButtonRight} onPress={handleVideoCall}>
+            <Ionicons 
+              name="videocam" 
+              size={28} 
+              color={user?.connectionId ? Colors.primary : Colors.textMuted} 
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
       <KeyboardAvoidingView 
         style={styles.content} 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
         <FlatList
           ref={flatListRef}
@@ -100,16 +122,13 @@ export default function ChatRoomScreen() {
             <View style={styles.chatHeaderInfo}>
               <Avatar name={name || '?'} size="xl" />
               <Text style={styles.chatHeaderName}>{name}</Text>
-              <Text style={styles.chatHeaderSubtitle}>You're friends on VideoCallApp</Text>
+              <Text style={styles.chatHeaderSubtitle}>Các bạn là bạn bè trên VideoCallApp</Text>
             </View>
           }
           renderItem={({ item, index }) => {
-            const isMine = item.senderId !== id; // If not from them, it's mine
-            // Check if we should show avatar (if previous message was from me, or it's the first message)
+            const isMine = item.senderId !== id; 
             const prevMessage = index > 0 ? messages[index - 1] : null;
             const showAvatar = !isMine && (!prevMessage || prevMessage.senderId !== item.senderId);
-
-            // Is this the very last message in the list and is it mine?
             const isLastMessage = index === messages.length - 1;
             const showSeen = isMine && isLastMessage && item.isSeen;
 
@@ -154,7 +173,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Layout.spacing.sm,
     paddingTop: 50,
     paddingBottom: Layout.spacing.sm,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.bg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.divider,
   },
@@ -162,7 +181,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  iconButton: {
+    padding: 4,
+    marginLeft: -4,
+  },
   headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  headerTextWrap: {
     marginLeft: 8,
   },
   headerName: {
@@ -176,6 +204,11 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButtonRight: {
+    padding: 8,
+    marginLeft: 8,
   },
   content: {
     flex: 1,

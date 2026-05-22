@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, Platform, Text } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, Platform, Alert, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@shared/constants/colors';
-import { Layout } from '@shared/constants/layout';
-import { IconButton } from '@shared/components/IconButton';
+import { API_URL } from '@shared/constants/config';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -12,7 +14,9 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, onTypingStart, onTypingEnd }: ChatInputProps) {
   const [text, setText] = useState('');
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const insets = useSafeAreaInsets();
 
   const handleTextChange = (newText: string) => {
     setText(newText);
@@ -39,11 +43,73 @@ export function ChatInput({ onSend, onTypingStart, onTypingEnd }: ChatInputProps
     }
   };
 
+  const handleComingSoon = () => {
+    Alert.alert('Thông báo', 'Tính năng này đang được phát triển!');
+  };
+
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setIsUploading(true);
+        const imageUri = result.assets[0].uri;
+        
+        const formData = new FormData();
+        const filename = imageUri.split('/').pop() || 'image.jpg';
+        
+        // Ensure formData is typed correctly for react-native
+        formData.append('file', {
+          uri: imageUri,
+          name: filename,
+          type: 'image/jpeg'
+        } as any);
+
+        const response = await fetch(`${API_URL}/upload`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Send the image URL as a message
+          onSend(data.url);
+        } else {
+          Alert.alert('Lỗi', 'Không thể tải ảnh lên máy chủ.');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Lỗi', 'Có lỗi xảy ra khi chọn ảnh.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <IconButton icon="➕" onPress={() => {}} backgroundColor="transparent" color={Colors.primary} size={36} />
-      <IconButton icon="📷" onPress={() => {}} backgroundColor="transparent" color={Colors.primary} size={36} />
-      <IconButton icon="🖼️" onPress={() => {}} backgroundColor="transparent" color={Colors.primary} size={36} />
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      <TouchableOpacity style={styles.actionIcon} onPress={handleComingSoon}>
+        <Ionicons name="add-circle" size={28} color={Colors.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.actionIcon} onPress={handleComingSoon}>
+        <Ionicons name="camera" size={26} color={Colors.primary} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.actionIcon} onPress={pickImage} disabled={isUploading}>
+        {isUploading ? (
+          <ActivityIndicator size="small" color={Colors.primary} />
+        ) : (
+          <Ionicons name="image" size={26} color={Colors.primary} />
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.actionIcon} onPress={handleComingSoon}>
+        <Ionicons name="mic" size={26} color={Colors.primary} />
+      </TouchableOpacity>
       
       <View style={styles.inputContainer}>
         <TextInput
@@ -56,15 +122,19 @@ export function ChatInput({ onSend, onTypingStart, onTypingEnd }: ChatInputProps
           multiline
           maxLength={1000}
         />
-        <IconButton icon="😊" onPress={() => {}} backgroundColor="transparent" size={32} style={styles.emojiBtn} />
+        <TouchableOpacity style={styles.emojiBtn} onPress={handleComingSoon}>
+          <Ionicons name="happy" size={24} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {text.trim().length > 0 ? (
         <TouchableOpacity style={styles.sendBtn} onPress={handleSend}>
-          <Text style={styles.sendIcon}>➤</Text>
+          <Ionicons name="send" size={24} color={Colors.primary} />
         </TouchableOpacity>
       ) : (
-        <IconButton icon="👍" onPress={() => onSend('👍')} backgroundColor="transparent" color={Colors.primary} size={36} />
+        <TouchableOpacity style={styles.sendBtn} onPress={() => onSend('👍')}>
+          <Ionicons name="thumbs-up" size={26} color={Colors.primary} />
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -75,10 +145,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 8,
-    paddingVertical: 10,
-    backgroundColor: Colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.divider,
+    paddingTop: 10,
+    backgroundColor: Colors.bg,
+  },
+  actionIcon: {
+    padding: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   inputContainer: {
     flex: 1,
@@ -88,7 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginHorizontal: 8,
     paddingLeft: 16,
-    paddingRight: 4,
+    paddingRight: 8,
     minHeight: 40,
     maxHeight: 120,
   },
@@ -101,7 +174,8 @@ const styles = StyleSheet.create({
     maxHeight: 120,
   },
   emojiBtn: {
-    marginBottom: 4,
+    padding: 6,
+    marginBottom: 2,
   },
   sendBtn: {
     width: 36,
@@ -109,9 +183,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
-  },
-  sendIcon: {
-    fontSize: 20,
-    color: Colors.primary,
+    marginRight: 4,
   },
 });

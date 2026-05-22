@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { useAuthStore } from '@features/auth/store/authStore';
@@ -10,6 +12,7 @@ import { Avatar } from '@shared/components/Avatar';
 export default function ProfileScreen() {
   const { userName, logout } = useAuthStore();
   const { disconnect } = useSignalR();
+  const insets = useSafeAreaInsets();
 
   const handleLogout = async () => {
     await disconnect();
@@ -19,7 +22,7 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
         <Text style={styles.headerTitle}>Me</Text>
       </View>
 
@@ -28,20 +31,70 @@ export default function ProfileScreen() {
         <Text style={styles.name}>{userName}</Text>
       </View>
 
-      <View style={styles.optionsSection}>
-        <TouchableOpacity style={styles.optionBtn}>
-          <Text style={styles.optionIcon}>🌙</Text>
-          <Text style={styles.optionText}>Dark Mode</Text>
-          <Text style={styles.optionValue}>On</Text>
+      <View style={styles.settingsSection}>
+        {/* Mock Options */}
+        <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}>
+          <View style={styles.settingLeft}>
+            <View style={styles.settingIconWrap}>
+              <Ionicons name="person-circle" size={24} color={Colors.text} />
+            </View>
+            <Text style={styles.settingLabel}>Tài khoản</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
         </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.optionBtn}>
-          <Text style={styles.optionIcon}>🔔</Text>
-          <Text style={styles.optionText}>Notifications</Text>
+
+        <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}>
+          <View style={styles.settingLeft}>
+            <View style={styles.settingIconWrap}>
+              <Ionicons name="lock-closed" size={22} color={Colors.text} />
+            </View>
+            <Text style={styles.settingLabel}>Quyền riêng tư</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
         </TouchableOpacity>
-        
+
+        <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}>
+          <View style={styles.settingLeft}>
+            <View style={styles.settingIconWrap}>
+              <Ionicons name="globe" size={22} color={Colors.text} />
+            </View>
+            <Text style={styles.settingLabel}>Ngôn ngữ</Text>
+          </View>
+          <Text style={styles.settingValue}>Tiếng Việt</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.settingItem} onPress={() => Alert.alert('Thông báo', 'Tính năng đang phát triển')}>
+          <View style={styles.settingLeft}>
+            <View style={styles.settingIconWrap}>
+              <Ionicons name="help-circle" size={24} color={Colors.text} />
+            </View>
+            <Text style={styles.settingLabel}>Trợ giúp & Hỗ trợ</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.textSecondary} />
+        </TouchableOpacity>
+
+        {/* Existing Options */}
+        <View style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <View style={styles.settingIconWrap}>
+              <Ionicons name="moon" size={20} color={Colors.text} />
+            </View>
+            <Text style={styles.settingLabel}>Dark Mode</Text>
+          </View>
+          <Text style={styles.settingValue}>On</Text>
+        </View>
+
+        <View style={styles.settingItem}>
+          <View style={styles.settingLeft}>
+            <View style={[styles.settingIconWrap, { backgroundColor: Colors.danger }]}>
+              <Ionicons name="notifications" size={20} color="#FFF" />
+            </View>
+            <Text style={styles.settingLabel}>Notifications</Text>
+          </View>
+        </View>
+
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Log Out</Text>
+          <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -55,7 +108,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: Layout.spacing.lg,
-    paddingTop: 60,
     paddingBottom: Layout.spacing.md,
   },
   headerTitle: {
@@ -73,40 +125,47 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: Layout.spacing.md,
   },
-  optionsSection: {
-    marginTop: Layout.spacing.xl,
+  settingsSection: {
     paddingHorizontal: Layout.spacing.lg,
   },
-  optionBtn: {
+  settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: Layout.spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Colors.divider,
+    justifyContent: 'space-between',
+    paddingVertical: Layout.spacing.md,
   },
-  optionIcon: {
-    fontSize: 20,
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  settingIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.surfaceInput,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: Layout.spacing.md,
   },
-  optionText: {
-    flex: 1,
+  settingLabel: {
     color: Colors.text,
-    fontSize: 17,
+    fontSize: 16,
+    fontWeight: '500',
   },
-  optionValue: {
+  settingValue: {
     color: Colors.textSecondary,
-    fontSize: 17,
+    fontSize: 16,
   },
   logoutBtn: {
     marginTop: Layout.spacing.xl,
-    paddingVertical: Layout.spacing.lg,
-    backgroundColor: Colors.surfaceElevated,
-    borderRadius: Layout.borderRadius.md,
+    paddingVertical: Layout.spacing.md,
+    backgroundColor: Colors.surfaceInput,
+    borderRadius: 12,
     alignItems: 'center',
   },
   logoutText: {
     color: Colors.danger,
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

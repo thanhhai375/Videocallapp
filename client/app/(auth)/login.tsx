@@ -11,14 +11,18 @@ import {
 } from "react-native";
 import { useState } from "react";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { login } from '@shared/api/api';
 import { useAuthStore } from '@features/auth/store/authStore';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
 
 export default function LoginScreen() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { setAuth } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
   const handleLogin = async () => {
     if (!name.trim() || !password.trim()) {
@@ -45,17 +49,17 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingBottom: Math.max(insets.bottom, 24) }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.card}>
-        <Text style={styles.title}>📱 Video Call</Text>
+        <Text style={styles.title}>💬 Video Call</Text>
         <Text style={styles.subtitle}>Đăng nhập để tiếp tục</Text>
 
         <TextInput
           style={styles.input}
           placeholder="Tên đăng nhập"
-          placeholderTextColor="#999"
+          placeholderTextColor={Colors.textMuted}
           value={name}
           onChangeText={setName}
           autoCapitalize="none"
@@ -64,7 +68,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Mật khẩu"
-          placeholderTextColor="#999"
+          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -76,7 +80,7 @@ export default function LoginScreen() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={Colors.text} />
           ) : (
             <Text style={styles.buttonText}>Đăng nhập</Text>
           )}
@@ -93,19 +97,19 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f0f1a",
+    backgroundColor: Colors.bg,
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: Layout.spacing.xl,
   },
   card: {
     width: "100%",
     maxWidth: 380,
-    backgroundColor: "#1a1a2e",
-    borderRadius: 20,
-    padding: 32,
+    backgroundColor: Colors.surfaceElevated,
+    borderRadius: Layout.borderRadius.lg,
+    padding: Layout.spacing.xxl,
     alignItems: "center",
-    shadowColor: "#7c3aed",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -114,45 +118,45 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 8,
+    color: Colors.text,
+    marginBottom: Layout.spacing.sm,
   },
   subtitle: {
     fontSize: 14,
-    color: "#9ca3af",
+    color: Colors.textSecondary,
     marginBottom: 32,
   },
   input: {
     width: "100%",
-    backgroundColor: "#0f0f1a",
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: Colors.surfaceInput,
+    borderRadius: Layout.borderRadius.md,
+    padding: Layout.spacing.md,
     fontSize: 16,
-    color: "#fff",
+    color: Colors.text,
     borderWidth: 1,
-    borderColor: "#2d2d4e",
-    marginBottom: 16,
+    borderColor: 'transparent',
+    marginBottom: Layout.spacing.lg,
   },
   button: {
     width: "100%",
-    backgroundColor: "#7c3aed",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: Colors.primary,
+    borderRadius: Layout.borderRadius.md,
+    padding: Layout.spacing.md,
     alignItems: "center",
-    marginTop: 8,
+    marginTop: Layout.spacing.sm,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
+    color: '#FFF',
     fontSize: 16,
     fontWeight: "600",
   },
   hint: {
-    marginTop: 24,
+    marginTop: Layout.spacing.xxl,
     fontSize: 12,
-    color: "#6b7280",
+    color: Colors.textMuted,
     textAlign: "center",
     lineHeight: 20,
   },

@@ -1,13 +1,14 @@
-﻿using VideoCall.Application.Interfaces;
+using VideoCall.Application.Interfaces;
 using VideoCall.Domain.Entities;
+using System.Collections.Concurrent;
 
 namespace VideoCall.Application.Services
 {
     public class UserService : IUserService
     {
         private readonly IRepository<User> userRepo;
-        // Dictionary chỉ dùng để map ConnectionId với User khi Online
-        private readonly Dictionary<string, User> _onlineUsers = new();
+        // Dictionary chỉ dùng để map ConnectionId với User khi Online (Dùng ConcurrentDictionary để tránh lỗi luồng)
+        private readonly ConcurrentDictionary<string, User> _onlineUsers = new();
 
         public UserService(IRepository<User> userRepo)
         {
@@ -39,7 +40,7 @@ namespace VideoCall.Application.Services
         // Xóa User khỏi danh sách online
         public Task<User?> SetOfflineAsync(string connectionId)
         {
-            if (_onlineUsers.Remove(connectionId, out var user))
+            if (_onlineUsers.TryRemove(connectionId, out var user))
             {
                 user.SetOffline();
                 return Task.FromResult<User?>(user);

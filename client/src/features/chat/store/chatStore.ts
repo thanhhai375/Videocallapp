@@ -50,6 +50,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...state.messagesByUserId,
           [otherUserId]: [...existingMessages, newMessage],
         },
+        typingStatus: {
+          ...state.typingStatus,
+          [otherUserId]: false,
+        }
       };
     }),
     

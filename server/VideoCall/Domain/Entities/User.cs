@@ -1,4 +1,4 @@
-﻿// Domain/Entities/User.cs
+// Domain/Entities/User.cs
 namespace VideoCall.Domain.Entities
 {
     public class User
@@ -6,13 +6,15 @@ namespace VideoCall.Domain.Entities
         public string Id { get; private set; } = Guid.NewGuid().ToString();
         public string Name { get; private set; }
         public string PasswordHash { get; private set; }
+        public string? PhoneNumber { get; private set; }
         public bool IsOnline { get; private set; }
         public string? ConnectionId { get; private set; }
 
-        public User(string name, string passwordHash)
+        public User(string name, string passwordHash, string? phoneNumber = null)
         {
             Name = name;
             PasswordHash = passwordHash;
+            PhoneNumber = phoneNumber;
         }
 
         public void SetOnline(string connectionId)

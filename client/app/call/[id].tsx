@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { RTCView } from 'react-native-webrtc';
 import { useWebRTC } from '../../src/features/calls/hooks/useWebRTC';
 import { useSignalR } from '../../src/shared/hooks/useSignalR';
@@ -93,22 +94,16 @@ export default function CallRoomScreen() {
 
       {/* Controls */}
       <View style={styles.controlsContainer}>
-        <IconButton
-          icon="🔄"
-          onPress={switchCamera}
-          backgroundColor={Colors.surfaceInput}
-          size={56}
-        />
+        <TouchableOpacity style={[styles.controlBtn, { backgroundColor: Colors.surfaceInput }]} onPress={switchCamera}>
+          <Ionicons name="camera-reverse" size={28} color="#FFF" />
+        </TouchableOpacity>
         
-        <IconButton
-          icon={isMuted ? '🔇' : '🎙️'}
-          onPress={toggleMic}
-          backgroundColor={isMuted ? Colors.surface : Colors.surfaceInput}
-          size={56}
-        />
+        <TouchableOpacity style={[styles.controlBtn, { backgroundColor: isMuted ? Colors.surface : Colors.surfaceInput }]} onPress={toggleMic}>
+          <Ionicons name={isMuted ? "mic-off" : "mic"} size={28} color="#FFF" />
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.hangUpBtn} onPress={handleHangUp}>
-          <Text style={styles.hangUpIcon}>📞</Text>
+          <Ionicons name="call" size={32} color="#FFF" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -121,11 +116,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
   },
   remoteVideo: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   connectingContainer: {
     flex: 1,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
   name: {
@@ -167,6 +168,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+  controlBtn: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   hangUpBtn: {
     width: 64,
     height: 64,
@@ -175,8 +183,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     transform: [{ rotate: '135deg' }], // Rotate phone icon to look like hangup
-  },
-  hangUpIcon: {
-    fontSize: 28,
   },
 });
