@@ -1,28 +1,13 @@
 import * as signalR from "@microsoft/signalr";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { HUB_URL } from "../constants/config";
-
-export interface Friend {
-  id: string;
-  name: string;
-  isOnline: boolean;
-  connectionId: string | null;
-}
-
-export interface ChatMessage {
-  senderId: string;
-  content: string;
-}
-
-export interface IncomingCall {
-  callerConnectionId: string;
-  callerName: string;
-}
+import { useAuthStore } from "../store/authStore";
+import { useUserStore } from "../store/userStore";
+import { useChatStore } from "../store/chatStore";
+import { User, IncomingCall } from "../types";
 
 interface UseSignalRReturn {
   isConnected: boolean;
-  friends: Friend[];
-  messages: ChatMessage[];
   incomingCall: IncomingCall | null;
   sendMessage: (targetId: string, content: string) => Promise<void>;
   getChatHistory: (targetId: string) => Promise<void>;
@@ -42,11 +27,13 @@ interface UseSignalRReturn {
   disconnect: () => Promise<void>;
 }
 
-export function useSignalR(token: string | null): UseSignalRReturn {
+export function useSignalR(): UseSignalRReturn {
+  const { token } = useAuthStore();
+  const { setUsers, updateUserStatus } = useUserStore();
+  const { addMessage, setHistory } = useChatStore();
+  
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
 
   const onReceiveOfferRef = useRef<((callerId: string, sdp: string) => void) | null>(null);
@@ -62,24 +49,33 @@ export function useSignalR(token: string | null): UseSignalRReturn {
       .configureLogging(signalR.LogLevel.Warning)
       .build();
 
-    // --- Lắng nghe events từ server ---
-
-    connection.on("LoadFriends", (data: Friend[]) => {
-      setFriends(data);
+    // ─── Handle Events ────────────────────────────────────────────────────────
+    
+    connection.on("LoadFriends", (data: User[]) => {
+      setUsers(data);
     });
 
     connection.on("UserStatusChanged", (userId: string, isOnline: boolean, connectionId: string | null) => {
-      setFriends((prev) =>
-        prev.map((f) => (f.id === userId ? { ...f, isOnline, connectionId } : f))
-      );
+      updateUserStatus(userId, isOnline, connectionId);
     });
 
     connection.on("ReceiveMessage", (senderId: string, content: string) => {
-      setMessages((prev) => [...prev, { senderId, content }]);
+      // Nhận tin nhắn từ người khác
+      addMessage(senderId, { senderId, content, timestamp: Date.now() });
     });
 
-    connection.on("LoadChatHistory", (history: ChatMessage[]) => {
-      setMessages(history);
+    connection.on("LoadChatHistory", (history: any[]) => {
+      if (history.length > 0) {
+        // Lấy otherUserId từ tin nhắn đầu tiên (tin nhắn không phải của mình)
+        // Lưu ý: Server hiện trả về mảng ẩn danh: new { m.SenderId, m.Content, m.Timestamp }
+        // Để mapping chính xác otherUserId, cần logic nhỏ:
+        // Đoạn này phụ thuộc vào người gọi GetChatHistory, nên ở ChatScreen ta có id của đối phương
+        // Tạm thời SignalR chỉ dispatch event, ta sẽ cần cách match.
+        // CÁCH TỐT NHẤT: pass otherUserId vào addHistory.
+        // Server hiện tại không trả về otherUserId cụ thể ngoài senderId.
+        // => Cần cập nhật lại server hoặc handle khéo léo. 
+        // Nhưng tạm thời ta lưu theo logic: if senderId != myId then otherUserId = senderId
+      }
     });
 
     connection.on("IncomingCall", (callerConnectionId: string, callerName: string) => {
@@ -94,6 +90,8 @@ export function useSignalR(token: string | null): UseSignalRReturn {
       setIncomingCall(null);
     });
 
+    // ─── WebRTC Events ────────────────────────────────────────────────────────
+
     connection.on("ReceiveOffer", (callerId: string, sdp: string) => {
       onReceiveOfferRef.current?.(callerId, sdp);
     });
@@ -105,6 +103,8 @@ export function useSignalR(token: string | null): UseSignalRReturn {
     connection.on("ReceiveIce", (candidate: object) => {
       onReceiveIceRef.current?.(candidate);
     });
+
+    // ─── Start Connection ─────────────────────────────────────────────────────
 
     connection
       .start()
@@ -120,7 +120,7 @@ export function useSignalR(token: string | null): UseSignalRReturn {
       connection.stop();
       setIsConnected(false);
     };
-  }, [token]);
+  }, [token, setUsers, updateUserStatus, addMessage]);
 
   const invoke = useCallback(async (method: string, ...args: unknown[]) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
@@ -130,14 +130,35 @@ export function useSignalR(token: string | null): UseSignalRReturn {
 
   return {
     isConnected,
-    friends,
-    messages,
     incomingCall,
-    sendMessage: (targetId, content) => invoke("SendMessage", targetId, content),
-    getChatHistory: (targetId) => invoke("GetChatHistory", targetId),
+    sendMessage: async (targetId, content) => {
+      // Khi mình gửi, server sẽ tự echo lại bằng ReceiveMessage
+      // Nhưng để app nhanh nhẹn, ta có thể addMessage ngay lập tức (optimistic UI), 
+      // Tuy nhiên server của bạn đã có: await Clients.Caller.SendAsync("ReceiveMessage", sender.Id, content);
+      // => Tức là server sẽ gọi lại ReceiveMessage cho TẤT CẢ các bên, bao gồm cả người gửi!
+      // Nên ta KHÔNG cần gọi addMessage ở đây. (Vì sẽ bị duplicate).
+      await invoke("SendMessage", targetId, content);
+    },
+    getChatHistory: async (targetId) => {
+      // Tùy chỉnh LoadChatHistory để pass targetId
+      // Server trả về mảng các objects, ta gắn cứng listener tạm thời ở đây
+      const onHistory = (history: any[]) => {
+         setHistory(targetId, history);
+         connectionRef.current?.off("LoadChatHistory", onHistory);
+      };
+      connectionRef.current?.on("LoadChatHistory", onHistory);
+      
+      await invoke("GetChatHistory", targetId);
+    },
     callFriend: (targetConnectionId) => invoke("CallFriend", targetConnectionId),
-    acceptCall: (callerConnectionId) => invoke("AcceptCall", callerConnectionId),
-    rejectCall: (callerConnectionId) => invoke("RejectCall", callerConnectionId),
+    acceptCall: (callerConnectionId) => {
+      setIncomingCall(null);
+      return invoke("AcceptCall", callerConnectionId);
+    },
+    rejectCall: (callerConnectionId) => {
+      setIncomingCall(null);
+      return invoke("RejectCall", callerConnectionId);
+    },
     endCall: (targetConnectionId) => invoke("EndCall", targetConnectionId),
     sendOffer: (targetId, sdp) => invoke("SendOffer", targetId, sdp),
     sendAnswer: (targetId, sdp) => invoke("SendAnswer", targetId, sdp),

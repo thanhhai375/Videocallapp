@@ -29,7 +29,7 @@ export default function LoginScreen() {
     try {
       const { token, name: userName } = await login(name.trim(), password);
       await setAuth(token, userName);
-      router.replace("/(main)/");
+      router.replace("/(tabs)/chats");
     } catch (err: any) {
       const msg =
         err?.response?.status === 401

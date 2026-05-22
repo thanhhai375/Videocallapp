@@ -10,7 +10,7 @@ export default function RootLayout() {
     // Load token từ AsyncStorage khi khởi động
     loadAuth().then(() => {
       if (isLoggedIn) {
-        router.replace("/(main)/");
+        router.replace("/(tabs)/chats");
       } else {
         router.replace("/(auth)/login");
       }

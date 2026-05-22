@@ -2,7 +2,6 @@
   "name": "videocall-client",
   "version": "1.0.0",
   "main": "expo-router/entry",
-
   "dependencies": {
     "@microsoft/signalr": "^10.0.0",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -12,10 +11,13 @@
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-native": "0.85.3",
+    "react-native-get-random-values": "^2.0.0",
+    "uuid": "^14.0.0",
     "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "@types/uuid": "^10.0.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
