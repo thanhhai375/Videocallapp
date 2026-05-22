@@ -1,10 +1,10 @@
 import * as signalR from "@microsoft/signalr";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { HUB_URL } from "../constants/config";
-import { useAuthStore } from "../store/authStore";
-import { useUserStore } from "../store/userStore";
-import { useChatStore } from "../store/chatStore";
-import { User, IncomingCall } from "../types";
+import { HUB_URL } from '@shared/constants/config';
+import { useAuthStore } from '@features/auth/store/authStore';
+import { useUserStore } from '@features/contacts/store/userStore';
+import { useChatStore } from '@features/chat/store/chatStore';
+import { User, IncomingCall } from '@shared/types';
 
 interface UseSignalRReturn {
   isConnected: boolean;
@@ -24,13 +24,16 @@ interface UseSignalRReturn {
   setOnReceiveOffer: (cb: (callerId: string, sdp: string) => void) => void;
   setOnReceiveAnswer: (cb: (sdp: string) => void) => void;
   setOnReceiveIce: (cb: (candidate: object) => void) => void;
+  sendTypingStarted: (targetId: string) => Promise<void>;
+  sendTypingEnded: (targetId: string) => Promise<void>;
+  sendMarkMessageSeen: (targetId: string, messageId: string) => Promise<void>;
   disconnect: () => Promise<void>;
 }
 
 export function useSignalR(): UseSignalRReturn {
   const { token } = useAuthStore();
   const { setUsers, updateUserStatus } = useUserStore();
-  const { addMessage, setHistory } = useChatStore();
+  const { addMessage, setHistory, setTypingStatus, markMessageSeen } = useChatStore();
   
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -65,17 +68,19 @@ export function useSignalR(): UseSignalRReturn {
     });
 
     connection.on("LoadChatHistory", (history: any[]) => {
-      if (history.length > 0) {
-        // Lấy otherUserId từ tin nhắn đầu tiên (tin nhắn không phải của mình)
-        // Lưu ý: Server hiện trả về mảng ẩn danh: new { m.SenderId, m.Content, m.Timestamp }
-        // Để mapping chính xác otherUserId, cần logic nhỏ:
-        // Đoạn này phụ thuộc vào người gọi GetChatHistory, nên ở ChatScreen ta có id của đối phương
-        // Tạm thời SignalR chỉ dispatch event, ta sẽ cần cách match.
-        // CÁCH TỐT NHẤT: pass otherUserId vào addHistory.
-        // Server hiện tại không trả về otherUserId cụ thể ngoài senderId.
-        // => Cần cập nhật lại server hoặc handle khéo léo. 
-        // Nhưng tạm thời ta lưu theo logic: if senderId != myId then otherUserId = senderId
-      }
+      // History handled via custom callback
+    });
+
+    connection.on("ReceiveTypingStarted", (callerId: string) => {
+      setTypingStatus(callerId, true);
+    });
+
+    connection.on("ReceiveTypingEnded", (callerId: string) => {
+      setTypingStatus(callerId, false);
+    });
+
+    connection.on("ReceiveMessageSeen", (callerId: string, messageId: string) => {
+      markMessageSeen(callerId, messageId);
     });
 
     connection.on("IncomingCall", (callerConnectionId: string, callerName: string) => {
@@ -169,6 +174,9 @@ export function useSignalR(): UseSignalRReturn {
     setOnReceiveOffer: (cb) => { onReceiveOfferRef.current = cb; },
     setOnReceiveAnswer: (cb) => { onReceiveAnswerRef.current = cb; },
     setOnReceiveIce: (cb) => { onReceiveIceRef.current = cb; },
+    sendTypingStarted: (targetId) => invoke("TypingStarted", targetId),
+    sendTypingEnded: (targetId) => invoke("TypingEnded", targetId),
+    sendMarkMessageSeen: (targetId, messageId) => invoke("MarkMessageSeen", targetId, messageId),
     disconnect: async () => {
       await connectionRef.current?.stop();
       setIsConnected(false);

@@ -12,6 +12,7 @@ export interface Message {
   senderId: string;
   content: string;
   timestamp: number;    // Date.now()
+  isSeen?: boolean;     // Trạng thái đã xem
 }
 
 // ─── Incoming Call ────────────────────────────────────────

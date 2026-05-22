@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors } from '../../constants/colors';
-import { Layout } from '../../constants/layout';
-import { Avatar } from '../ui/Avatar';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
+import { Avatar } from '@shared/components/Avatar';
 
 interface ConversationItemProps {
   name: string;

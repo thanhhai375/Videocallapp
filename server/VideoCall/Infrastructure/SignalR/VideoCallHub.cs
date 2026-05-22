@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR;
 using System.Text;
 using VideoCall.Application.Interfaces;
 using VideoCall.Domain.Entities;
@@ -85,6 +85,28 @@ namespace VideoCall.Infrastructure.SignalR
             await Clients.Caller.SendAsync("LoadChatHistory", history);
         }
 
+
+        // --- TÍNH NĂNG CHAT NÂNG CAO ---
+        public async Task TypingStarted(string targetId)
+        {
+            var targetUser = _userService.GetOnlineUserById(targetId);
+            if (targetUser?.ConnectionId != null)
+                await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveTypingStarted", Context.ConnectionId);
+        }
+
+        public async Task TypingEnded(string targetId)
+        {
+            var targetUser = _userService.GetOnlineUserById(targetId);
+            if (targetUser?.ConnectionId != null)
+                await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveTypingEnded", Context.ConnectionId);
+        }
+
+        public async Task MarkMessageSeen(string targetId, string messageId)
+        {
+            var targetUser = _userService.GetOnlineUserById(targetId);
+            if (targetUser?.ConnectionId != null)
+                await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveMessageSeen", Context.ConnectionId, messageId);
+        }
 
         //Bắt đầu cuộc gọi
         public async Task CallFriend(string targetId)

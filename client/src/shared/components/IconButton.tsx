@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, StyleProp, ViewStyle, Text } from 'react-native';
-import { Colors } from '../../constants/colors';
+import { Colors } from '@shared/constants/colors';
 
 interface IconButtonProps {
   icon: string; // Using string emoji as placeholder for actual icons (e.g. vector icons)

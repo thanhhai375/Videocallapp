@@ -1,34 +1,44 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { useSignalR } from '../../../../hooks/useSignalR';
-import { useChatStore } from '../../../../store/chatStore';
-import { useAuthStore } from '../../../../store/authStore';
-import { useUserStore } from '../../../../store/userStore';
-import { Colors } from '../../../../constants/colors';
-import { Layout } from '../../../../constants/layout';
-import { ChatInput } from '../../../../components/chat/ChatInput';
-import { MessageBubble } from '../../../../components/chat/MessageBubble';
-import { IconButton } from '../../../../components/ui/IconButton';
-import { Avatar } from '../../../../components/ui/Avatar';
+import { useSignalR } from '@shared/hooks/useSignalR';
+import { useChatStore } from '@features/chat/store/chatStore';
+import { useAuthStore } from '@features/auth/store/authStore';
+import { useUserStore } from '@features/contacts/store/userStore';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
+import { ChatInput } from '@features/chat/components/ChatInput';
+import { MessageBubble } from '@features/chat/components/MessageBubble';
+import { IconButton } from '@shared/components/IconButton';
+import { Avatar } from '@shared/components/Avatar';
 
 export default function ChatRoomScreen() {
   const { id, name, connectionId } = useLocalSearchParams<{ id: string, name: string, connectionId: string }>();
   const { userName } = useAuthStore();
   const { getUserById } = useUserStore();
-  const { getMessages } = useChatStore();
-  const { sendMessage, getChatHistory } = useSignalR();
+  const { getMessages, typingStatus, markMessageSeen } = useChatStore();
+  const { sendMessage, getChatHistory, callFriend, sendTypingStarted, sendTypingEnded, sendMarkMessageSeen } = useSignalR();
   const flatListRef = useRef<FlatList>(null);
 
   const messages = getMessages(id || '');
   const user = getUserById(id || '');
   const isOnline = user?.isOnline || false;
+  const isTyping = typingStatus[id || ''] || false;
 
   useEffect(() => {
     if (id) {
       getChatHistory(id);
     }
   }, [id]);
+
+  useEffect(() => {
+    // Mark last message as seen
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg && lastMsg.senderId === id && !lastMsg.isSeen) {
+      markMessageSeen(id, lastMsg.id);
+      sendMarkMessageSeen(id, lastMsg.id);
+    }
+  }, [messages.length, id]);
 
   const handleSend = async (content: string) => {
     if (id) {
@@ -45,9 +55,10 @@ export default function ChatRoomScreen() {
     }
   };
 
-  const handleVideoCall = () => {
-    if (user?.connectionId) {
-      // Navigate to call screen (we'll implement this later)
+  const handleVideoCall = async () => {
+    if (user?.connectionId && id) {
+      await callFriend(user.connectionId);
+      router.push(`/call/${id}?name=${name}&connectionId=${user.connectionId}&isCaller=true`);
     }
   };
 
@@ -98,18 +109,34 @@ export default function ChatRoomScreen() {
             const prevMessage = index > 0 ? messages[index - 1] : null;
             const showAvatar = !isMine && (!prevMessage || prevMessage.senderId !== item.senderId);
 
+            // Is this the very last message in the list and is it mine?
+            const isLastMessage = index === messages.length - 1;
+            const showSeen = isMine && isLastMessage && item.isSeen;
+
             return (
               <MessageBubble
                 content={item.content}
                 isMine={isMine}
                 showAvatar={showAvatar}
                 senderName={name}
+                isSeen={showSeen}
               />
             );
           }}
+          ListFooterComponent={
+            isTyping ? (
+              <View style={{ paddingHorizontal: Layout.spacing.lg, marginTop: 8 }}>
+                <MessageBubble content="💬" isMine={false} showAvatar={true} senderName={name} />
+              </View>
+            ) : null
+          }
         />
 
-        <ChatInput onSend={handleSend} />
+        <ChatInput 
+          onSend={handleSend} 
+          onTypingStart={() => { if (id) sendTypingStarted(id); }}
+          onTypingEnd={() => { if (id) sendTypingEnded(id); }}
+        />
       </KeyboardAvoidingView>
     </View>
   );

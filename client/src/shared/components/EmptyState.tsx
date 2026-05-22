@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '../../constants/colors';
+import { Colors } from '@shared/constants/colors';
 
 interface EmptyStateProps {
   title: string;

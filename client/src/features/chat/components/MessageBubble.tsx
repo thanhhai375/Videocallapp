@@ -1,16 +1,17 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '../../constants/colors';
-import { Layout } from '../../constants/layout';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
 
 interface MessageBubbleProps {
   content: string;
   isMine: boolean;
   showAvatar?: boolean; // For grouping messages
   senderName?: string;  // First letter of name if avatar is shown
+  isSeen?: boolean;     // Show tiny avatar below the bubble
 }
 
-export function MessageBubble({ content, isMine, showAvatar = false, senderName = '?' }: MessageBubbleProps) {
+export function MessageBubble({ content, isMine, showAvatar = false, senderName = '?', isSeen = false }: MessageBubbleProps) {
   return (
     <View style={[styles.container, isMine ? styles.myContainer : styles.theirContainer]}>
       
@@ -27,6 +28,12 @@ export function MessageBubble({ content, isMine, showAvatar = false, senderName 
           {content}
         </Text>
       </View>
+      
+      {isMine && isSeen && (
+        <View style={styles.seenAvatar}>
+          <Text style={styles.seenAvatarText}>{senderName.charAt(0).toUpperCase()}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -85,5 +92,21 @@ const styles = StyleSheet.create({
   avatarSpacer: {
     width: 28,
     marginRight: 8,
+  },
+  seenAvatar: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: Colors.surfaceInput,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: -16,
+    right: 16,
+  },
+  seenAvatarText: {
+    color: Colors.textSecondary,
+    fontSize: 8,
+    fontWeight: 'bold',
   },
 });

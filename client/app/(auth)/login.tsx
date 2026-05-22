@@ -11,8 +11,8 @@ import {
 } from "react-native";
 import { useState } from "react";
 import { router } from "expo-router";
-import { login } from "../../services/api";
-import { useAuthStore } from "../../store/authStore";
+import { login } from '@shared/api/api';
+import { useAuthStore } from '@features/auth/store/authStore';
 
 export default function LoginScreen() {
   const [name, setName] = useState("");

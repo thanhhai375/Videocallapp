@@ -1,8 +1,8 @@
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
-import { Colors } from '../../constants/colors';
-import { IncomingCall } from '../../types';
-import { Avatar } from '../ui/Avatar';
+import { Colors } from '@shared/constants/colors';
+import { IncomingCall } from '@shared/types';
+import { Avatar } from '@shared/components/Avatar';
 
 interface IncomingCallModalProps {
   call: IncomingCall | null;

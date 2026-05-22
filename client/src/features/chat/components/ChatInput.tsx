@@ -1,20 +1,41 @@
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { Colors } from '../../constants/colors';
-import { Layout } from '../../constants/layout';
-import { IconButton } from '../ui/IconButton';
+import React, { useState, useRef } from 'react';
+import { View, TextInput, TouchableOpacity, StyleSheet, Platform, Text } from 'react-native';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
+import { IconButton } from '@shared/components/IconButton';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
+  onTypingStart?: () => void;
+  onTypingEnd?: () => void;
 }
 
-export function ChatInput({ onSend }: ChatInputProps) {
+export function ChatInput({ onSend, onTypingStart, onTypingEnd }: ChatInputProps) {
   const [text, setText] = useState('');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleTextChange = (newText: string) => {
+    setText(newText);
+    
+    if (newText.trim().length > 0) {
+      onTypingStart?.();
+      
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        onTypingEnd?.();
+      }, 2000);
+    } else {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      onTypingEnd?.();
+    }
+  };
 
   const handleSend = () => {
     if (text.trim()) {
       onSend(text.trim());
       setText('');
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      onTypingEnd?.();
     }
   };
 
@@ -30,7 +51,8 @@ export function ChatInput({ onSend }: ChatInputProps) {
           placeholder="Aa"
           placeholderTextColor={Colors.textMuted}
           value={text}
-          onChangeText={setText}
+          onChangeText={handleTextChange}
+          onBlur={() => onTypingEnd?.()}
           multiline
           maxLength={1000}
         />

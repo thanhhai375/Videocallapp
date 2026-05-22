@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { Colors } from '../../../constants/colors';
-import { Layout } from '../../../constants/layout';
-import { useAuthStore } from '../../../store/authStore';
-import { useSignalR } from '../../../hooks/useSignalR';
-import { Avatar } from '../../../components/ui/Avatar';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
+import { useAuthStore } from '@features/auth/store/authStore';
+import { useSignalR } from '@shared/hooks/useSignalR';
+import { Avatar } from '@shared/components/Avatar';
 
 export default function ProfileScreen() {
   const { userName, logout } = useAuthStore();

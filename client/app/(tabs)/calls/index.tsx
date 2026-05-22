@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '../../../constants/colors';
-import { Layout } from '../../../constants/layout';
-import { EmptyState } from '../../../components/ui/EmptyState';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
+import { EmptyState } from '@shared/components/EmptyState';
 
 export default function CallsScreen() {
   return (

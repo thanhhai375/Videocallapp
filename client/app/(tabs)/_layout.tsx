@@ -1,5 +1,6 @@
+import { Text } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Colors } from '../../constants/colors';
+import { Colors } from '@shared/constants/colors';
 
 export default function TabsLayout() {
   return (
@@ -28,7 +29,7 @@ export default function TabsLayout() {
         name="chats"
         options={{
           title: 'Chats',
-          tabBarIcon: ({ color }) => <span style={{ fontSize: 24, color }}>💬</span>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>💬</Text>,
           headerShown: false, // We will build a custom header inside chats/index
         }}
       />
@@ -36,21 +37,21 @@ export default function TabsLayout() {
         name="people"
         options={{
           title: 'People',
-          tabBarIcon: ({ color }) => <span style={{ fontSize: 24, color }}>👥</span>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>👥</Text>,
         }}
       />
       <Tabs.Screen
         name="calls"
         options={{
           title: 'Calls',
-          tabBarIcon: ({ color }) => <span style={{ fontSize: 24, color }}>📞</span>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>📞</Text>,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color }) => <span style={{ fontSize: 24, color }}>⚙️</span>,
+          tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, color }}>⚙️</Text>,
         }}
       />
     </Tabs>

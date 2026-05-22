@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { router } from 'expo-router';
-import { useUserStore } from '../../../store/userStore';
-import { useChatStore } from '../../../store/chatStore';
-import { useSignalR } from '../../../hooks/useSignalR';
-import { Colors } from '../../../constants/colors';
-import { Layout } from '../../../constants/layout';
-import { ConversationItem } from '../../../components/chat/ConversationItem';
-import { IconButton } from '../../../components/ui/IconButton';
-import { Avatar } from '../../../components/ui/Avatar';
+import { useUserStore } from '@features/contacts/store/userStore';
+import { useChatStore } from '@features/chat/store/chatStore';
+import { useSignalR } from '@shared/hooks/useSignalR';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
+import { ConversationItem } from '@features/chat/components/ConversationItem';
+import { IconButton } from '@shared/components/IconButton';
+import { Avatar } from '@shared/components/Avatar';
 
 export default function ChatsScreen() {
   const { isConnected } = useSignalR();

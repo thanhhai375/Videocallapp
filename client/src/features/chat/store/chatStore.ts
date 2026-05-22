@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Message } from '../types';
+import { Message } from '@shared/types';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -7,11 +7,18 @@ interface ChatState {
   // Key: other user's ID, Value: array of messages with that user
   messagesByUserId: Record<string, Message[]>;
   
+  // Typing indicators
+  typingStatus: Record<string, boolean>;
+  setTypingStatus: (userId: string, isTyping: boolean) => void;
+  
   // Add a message received from or sent to a specific user
-  addMessage: (otherUserId: string, message: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number }) => void;
+  addMessage: (otherUserId: string, message: Omit<Message, 'id' | 'timestamp'> & { timestamp?: number, id?: string }) => void;
   
   // Set the entire chat history for a specific user
   setHistory: (otherUserId: string, history: Omit<Message, 'id'>[]) => void;
+  
+  // Mark a specific message as seen
+  markMessageSeen: (otherUserId: string, messageId: string) => void;
   
   // Get messages for a specific user
   getMessages: (otherUserId: string) => Message[];
@@ -22,13 +29,19 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messagesByUserId: {},
+  typingStatus: {},
+  
+  setTypingStatus: (userId, isTyping) => 
+    set((state) => ({
+      typingStatus: { ...state.typingStatus, [userId]: isTyping }
+    })),
   
   addMessage: (otherUserId, message) => 
     set((state) => {
       const existingMessages = state.messagesByUserId[otherUserId] || [];
       const newMessage: Message = {
         ...message,
-        id: uuidv4(),
+        id: message.id || uuidv4(),
         timestamp: message.timestamp || Date.now(),
       };
       
@@ -53,6 +66,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
           ...state.messagesByUserId,
           [otherUserId]: fullHistory,
         },
+      };
+    }),
+    
+  markMessageSeen: (otherUserId, messageId) => 
+    set((state) => {
+      const msgs = state.messagesByUserId[otherUserId] || [];
+      return {
+        messagesByUserId: {
+          ...state.messagesByUserId,
+          [otherUserId]: msgs.map(m => m.id === messageId ? { ...m, isSeen: true } : m)
+        }
       };
     }),
     

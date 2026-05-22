@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
-import { Colors } from '../../../constants/colors';
-import { Layout } from '../../../constants/layout';
-import { useUserStore } from '../../../store/userStore';
-import { Avatar } from '../../../components/ui/Avatar';
-import { IconButton } from '../../../components/ui/IconButton';
+import { Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
+import { useUserStore } from '@features/contacts/store/userStore';
+import { Avatar } from '@shared/components/Avatar';
+import { IconButton } from '@shared/components/IconButton';
 
 export default function PeopleScreen() {
   const { users } = useUserStore();
