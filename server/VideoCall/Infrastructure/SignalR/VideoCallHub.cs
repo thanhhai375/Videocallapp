@@ -133,29 +133,45 @@ namespace VideoCall.Infrastructure.SignalR
 
         public async Task MarkMessageSeen(string targetId, string messageId)
         {
-            if (!Guid.TryParse(messageId, out var msgGuid)) return;
-            var readerId = CurrentUserId;
-
-            var alreadyRead = _db.MessageReadReceipts.Any(r => r.MessageId == msgGuid && r.ReaderId == readerId);
-            if (!alreadyRead)
+            try
             {
-                _db.MessageReadReceipts.Add(new MessageReadReceipt { MessageId = msgGuid, ReaderId = readerId });
-                await _db.SaveChangesAsync();
-            }
+                if (!Guid.TryParse(messageId, out var msgGuid)) return;
+                var readerId = CurrentUserId;
 
-            var targetUser = await _db.Users.FindAsync(Guid.Parse(targetId));
-            if (targetUser?.ConnectionId != null)
-                await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveMessageSeen", Context.ConnectionId, messageId);
+                var alreadyRead = _db.MessageReadReceipts.Any(r => r.MessageId == msgGuid && r.ReaderId == readerId);
+                if (!alreadyRead)
+                {
+                    _db.MessageReadReceipts.Add(new MessageReadReceipt { MessageId = msgGuid, ReaderId = readerId });
+                    await _db.SaveChangesAsync();
+                }
+
+                var targetUser = await _db.Users.FindAsync(Guid.Parse(targetId));
+                if (targetUser?.ConnectionId != null)
+                    await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveMessageSeen", Context.ConnectionId, messageId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in MarkMessageSeen: {ex.Message}");
+                // Ignore duplicate key exceptions for read receipts
+            }
         }
 
         // ── CALLS ─────────────────────────────────────────────────────
-        private static readonly Dictionary<string, (Guid callerId, Guid receiverId, DateTime startedAt)> _activeCalls = new();
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (Guid callerId, Guid receiverId, DateTime startedAt)> _activeCalls = new();
 
         public async Task CallFriend(string targetConnectionId, string callType = "Video")
         {
-            var caller = await _db.Users.FindAsync(CurrentUserId);
-            _activeCalls[Context.ConnectionId] = (CurrentUserId, Guid.Empty, DateTime.UtcNow);
-            await Clients.Client(targetConnectionId).SendAsync("IncomingCall", Context.ConnectionId, caller?.Username, callType);
+            try
+            {
+                var caller = await _db.Users.FindAsync(CurrentUserId);
+                _activeCalls[Context.ConnectionId] = (CurrentUserId, Guid.Empty, DateTime.UtcNow);
+                await Clients.Client(targetConnectionId).SendAsync("IncomingCall", Context.ConnectionId, caller?.Username, callType);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in CallFriend: {ex.Message}\n{ex.StackTrace}");
+                throw;
+            }
         }
 
         public async Task AcceptCall(string callerConnectionId)
@@ -181,7 +197,7 @@ namespace VideoCall.Infrastructure.SignalR
                     EndedAt = DateTime.UtcNow
                 });
                 await _db.SaveChangesAsync();
-                _activeCalls.Remove(callerConnectionId);
+                _activeCalls.TryRemove(callerConnectionId, out _);
             }
             await Clients.Client(callerConnectionId).SendAsync("CallRejected");
         }
@@ -202,7 +218,7 @@ namespace VideoCall.Infrastructure.SignalR
                     DurationSeconds = (int)(ended - info.startedAt).TotalSeconds
                 });
                 await _db.SaveChangesAsync();
-                _activeCalls.Remove(Context.ConnectionId);
+                _activeCalls.TryRemove(Context.ConnectionId, out _);
             }
             await Clients.Client(targetConnectionId).SendAsync("CallEnded");
         }

@@ -18,7 +18,7 @@ export default function CallRoomScreen() {
     sdp?: string;
   }>();
 
-  const { endCall } = useSignalR();
+  const { endCall, onCallAccepted, setOnCallAccepted } = useSignalR();
   const {
     localStream,
     remoteStream,
@@ -34,18 +34,19 @@ export default function CallRoomScreen() {
   const [callStatus, setCallStatus] = useState<string>('Connecting...');
 
   useEffect(() => {
-    // If we are the caller, initiate the call
     if (isCaller === 'true') {
-      setCallStatus('Calling...');
-      makeCall();
-    } else if (sdp) {
-      // If we are the callee, answer the call with the provided SDP offer
-      setCallStatus('Connecting...');
-      answerCall(sdp);
+      setCallStatus('Calling... (Waiting for answer)');
+      setOnCallAccepted((calleeConnectionId) => {
+        setCallStatus('Call Accepted. Negotiating...');
+        makeCall();
+      });
+    } else {
+      setCallStatus('Connecting (Waiting for video feed)...');
     }
 
     return () => {
       cleanup();
+      setOnCallAccepted(null as any);
     };
   }, []);
 
@@ -71,6 +72,7 @@ export default function CallRoomScreen() {
           streamURL={remoteStream.toURL()}
           style={styles.remoteVideo}
           objectFit="cover"
+          zOrder={0}
         />
       ) : (
         <View style={styles.connectingContainer}>
@@ -88,6 +90,7 @@ export default function CallRoomScreen() {
             style={styles.localVideo}
             objectFit="cover"
             mirror={isFrontCamera} // Mirror if front camera
+            zOrder={1}
           />
         </View>
       )}
