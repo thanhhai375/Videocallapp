@@ -5,26 +5,36 @@
     "version": "1.0.0",
     "scheme": "videocall",
     "orientation": "portrait",
+
     "icon": "./assets/icon.png",
+
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+
     "userInterfaceStyle": "dark",
+
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.videocall.app"
     },
+
     "android": {
       "package": "com.videocall.app",
       "adaptiveIcon": {
-        "backgroundColor": "#7c3aed",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0f172a"
       },
       "predictiveBackGestureEnabled": false
     },
+
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
+
     "plugins": [
       "expo-router",
       [
@@ -33,15 +43,9 @@
           "photosPermission": "Cho phép VideoCallApp truy cập ảnh của bạn",
           "cameraPermission": "Cho phép VideoCallApp dùng camera"
         }
-      ],
-      [
-        "@config-plugins/react-native-webrtc",
-        {
-          "cameraPermission": "Allow VideoCallApp to access your camera",
-          "microphonePermission": "Allow VideoCallApp to access your microphone"
-        }
       ]
     ],
+
     "experiments": {
       "typedRoutes": true
     }
