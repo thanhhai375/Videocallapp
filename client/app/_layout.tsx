@@ -1,37 +1,52 @@
 import React, { useEffect, useState } from "react";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from 'expo-splash-screen';
+
 import { useAuthStore } from "@features/auth/store/authStore";
 import { useSignalR } from "@shared/hooks/useSignalR";
 import { IncomingCallModal } from "@features/calls/components/IncomingCallModal";
 
+// Ngăn Splash Screen tự ẩn
+SplashScreen.preventAutoHideAsync();
+
 export default function RootLayout() {
-  const { loadAuth, isLoggedIn } = useAuthStore();
-  const [isReady, setIsReady] = useState(false);
-  
-  // Initialize global SignalR listeners (including incoming calls)
+  const { loadAuth } = useAuthStore();
+  const [appIsReady, setAppIsReady] = useState(false);
+
   const { incomingCall, acceptCall, rejectCall } = useSignalR();
 
   useEffect(() => {
-    // Load token từ AsyncStorage khi khởi động
-    loadAuth().then(() => {
-      setIsReady(true);
-      if (isLoggedIn) {
-        router.replace("/(tabs)/chats");
-      } else {
-        router.replace("/(auth)/login");
+    async function prepare() {
+      try {
+        // Load thông tin đăng nhập từ bộ nhớ
+        await loadAuth();
+        // Chờ thêm một chút để đảm bảo mọi thứ sẵn sàng
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        setAppIsReady(true);
       }
-    });
-  }, [isLoggedIn, loadAuth]);
+    }
 
-  if (!isReady) return null;
+    prepare();
+  }, []);
+
+  useEffect(() => {
+    if (appIsReady) {
+      // Ẩn Splash Screen khi app đã sẵn sàng
+      SplashScreen.hideAsync();
+    }
+  }, [appIsReady]);
 
   const handleAcceptCall = async () => {
     if (incomingCall) {
       await acceptCall(incomingCall.callerConnectionId);
-      // Giả sử ta tìm được userId từ danh sách (ở đây truyền fake id tạm thời hoặc lấy từ store)
-      // Để hoàn hảo, ta nên có userId trong incomingCall payload.
-      router.push(`/call/incoming?name=${incomingCall.callerName}&connectionId=${incomingCall.callerConnectionId}&isCaller=false`);
+
+      router.push(
+        `/call/incoming?name=${incomingCall.callerName}&connectionId=${incomingCall.callerConnectionId}&isCaller=false`
+      );
     }
   };
 
@@ -41,20 +56,32 @@ export default function RootLayout() {
     }
   };
 
+  if (!appIsReady) {
+    return null;
+  }
+
   return (
     <>
       <StatusBar style="light" />
+
       <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="call/[id]" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+        <Stack.Screen
+          name="call/[id]"
+          options={{
+            headerShown: false,
+            presentation: "fullScreenModal",
+          }}
+        />
       </Stack>
 
-      <IncomingCallModal 
-        call={incomingCall} 
-        onAccept={handleAcceptCall} 
-        onReject={handleRejectCall} 
+      <IncomingCallModal
+        call={incomingCall}
+        onAccept={handleAcceptCall}
+        onReject={handleRejectCall}
       />
     </>
   );

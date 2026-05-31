@@ -6,13 +6,7 @@
     "scheme": "videocall",
     "orientation": "portrait",
 
-    "icon": "./assets/icon.png",
-
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0f172a"
-    },
+    "icon": "./assets/adaptive-icon.png",
 
     "userInterfaceStyle": "dark",
 
@@ -24,19 +18,30 @@
     "android": {
       "package": "com.videocall.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#0f172a"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#050110"
       },
       "predictiveBackGestureEnabled": false
     },
 
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/adaptive-icon.png"
     },
 
     "plugins": [
-      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/adaptive-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#050110",
+          "dark": {
+            "image": "./assets/adaptive-icon.png",
+            "backgroundColor": "#050110"
+          }
+        }
+      ],
       [
         "expo-image-picker",
         {
