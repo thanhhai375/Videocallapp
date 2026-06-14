@@ -9,6 +9,7 @@
     "icon": "./assets/adaptive-icon.png",
 
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#000814",
 
     "ios": {
       "supportsTablet": true,
@@ -19,7 +20,7 @@
       "package": "com.videocall.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#050110"
+        "backgroundColor": "#000814"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -35,10 +36,10 @@
         {
           "image": "./assets/adaptive-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#050110",
+          "backgroundColor": "#000814",
           "dark": {
             "image": "./assets/adaptive-icon.png",
-            "backgroundColor": "#050110"
+            "backgroundColor": "#000814"
           }
         }
       ],

@@ -1,37 +1,37 @@
 /**
- * Messenger Dark color palette — single source of truth for all colors.
+ * VideoCall App Blue Dark color palette — single source of truth for all colors.
  * Components MUST import from here, never hardcode hex values.
  */
 export const Colors = {
   // ── Backgrounds ───────────────────────────────────────────
-  bg:              '#000000',   // Page background
-  surface:         '#1C1E21',   // Card / tab bar / header
-  surfaceElevated: '#242526',   // Elevated cards, modals
-  surfaceInput:    '#3A3B3C',   // Input fields
+  bg:              '#000814',   // Deep dark blue background
+  surface:         '#001D3D',   // Dark blue surface
+  surfaceElevated: '#003566',   // Elevated cards, modals
+  surfaceInput:    '#001D3D',   // Input fields
 
   // ── Brand ─────────────────────────────────────────────────
-  primary:         '#0084FF',   // Messenger blue
-  primaryDim:      'rgba(0,132,255,0.15)',
+  primary:         '#00A3FF',   // Vibrant Electric Blue
+  primaryDim:      'rgba(0, 163, 255, 0.15)',
 
   // ── Text ──────────────────────────────────────────────────
-  text:            '#E4E6EB',   // Primary text
-  textSecondary:   '#B0B3B8',   // Secondary / subtitle
-  textMuted:       '#65676B',   // Timestamps, placeholders
+  text:            '#F8FAFC',   // Off-white primary text
+  textSecondary:   '#BAE6FD',   // Light blue secondary text
+  textMuted:       '#38B2AC',   // Teal/muted blue
 
   // ── Status ────────────────────────────────────────────────
-  online:          '#31A24C',   // Green online dot
-  danger:          '#FA3E3E',   // Red / decline
-  success:         '#31A24C',
+  online:          '#10B981',   // Emerald
+  danger:          '#EF4444',   // Red
+  success:         '#10B981',
 
   // ── Separators ────────────────────────────────────────────
-  divider:         '#3E4042',
+  divider:         '#003566',
 
   // ── Chat bubbles ──────────────────────────────────────────
-  myBubble:        '#0084FF',
+  myBubble:        '#00A3FF',
   myBubbleText:    '#FFFFFF',
-  theirBubble:     '#3A3B3C',
-  theirBubbleText: '#E4E6EB',
+  theirBubble:     '#003566',
+  theirBubbleText: '#F8FAFC',
 
   // ── Transparent overlays ──────────────────────────────────
-  overlay:         'rgba(0,0,0,0.6)',
+  overlay:         'rgba(0,0,0,0.7)',
 } as const;
