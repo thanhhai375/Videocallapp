@@ -95,6 +95,7 @@ app.UseDefaultFiles(new DefaultFilesOptions { DefaultFileNames = new List<string
 app.UseStaticFiles();
 app.UseRouting();
 app.UseCors("AllowAll");
+app.UseWebSockets();
 app.UseAuthentication();
 app.UseAuthorization();
 

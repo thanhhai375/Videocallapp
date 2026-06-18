@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Platform, PermissionsAndroid } from 'react-native';
 import {
   RTCPeerConnection,
   RTCIceCandidate,
@@ -21,7 +22,14 @@ const peerConstraints = {
 };
 
 export function useWebRTC(targetConnectionId: string | null) {
-  const { sendOffer, sendAnswer, sendIce, onReceiveOffer, onReceiveAnswer, onReceiveIce } = useSignalR();
+  const { 
+    sendOffer, 
+    sendAnswer, 
+    sendIce, 
+    setOnReceiveOffer, 
+    setOnReceiveAnswer, 
+    setOnReceiveIce 
+  } = useSignalR();
   
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -29,10 +37,25 @@ export function useWebRTC(targetConnectionId: string | null) {
   const [isFrontCamera, setIsFrontCamera] = useState(true);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const pendingIceCandidates = useRef<any[]>([]);
 
   // Initialize Media Stream
   const startLocalStream = async () => {
     try {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+        if (
+          granted[PermissionsAndroid.PERMISSIONS.CAMERA] !== PermissionsAndroid.RESULTS.GRANTED ||
+          granted[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] !== PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          console.error('Camera/Microphone permissions denied');
+          return null;
+        }
+      }
+
       const stream = await mediaDevices.getUserMedia({
         audio: true,
         video: {
@@ -115,30 +138,57 @@ export function useWebRTC(targetConnectionId: string | null) {
 
   // Handle incoming signaling events
   useEffect(() => {
-    if (!pcRef.current) return;
+    setOnReceiveOffer(async (callerId: string, sdpString: string) => {
+      console.log("Received Offer from", callerId);
+      await answerCall(sdpString);
+      // Process any buffered candidates
+      if (pcRef.current && pendingIceCandidates.current.length > 0) {
+        for (const c of pendingIceCandidates.current) {
+           await pcRef.current.addIceCandidate(new RTCIceCandidate(c) as any).catch(console.error);
+        }
+        pendingIceCandidates.current = [];
+      }
+    });
 
-    if (onReceiveAnswer) {
+    setOnReceiveAnswer(async (sdpString: string) => {
+      console.log("Received Answer");
+      if (!pcRef.current) return;
       try {
-        const answerDescription = new RTCSessionDescription(JSON.parse(onReceiveAnswer as unknown as string));
-        pcRef.current.setRemoteDescription(answerDescription);
+        const answerDescription = new RTCSessionDescription(JSON.parse(sdpString));
+        await pcRef.current.setRemoteDescription(answerDescription);
+        // Process any buffered candidates
+        if (pendingIceCandidates.current.length > 0) {
+          for (const c of pendingIceCandidates.current) {
+             await pcRef.current.addIceCandidate(new RTCIceCandidate(c) as any).catch(console.error);
+          }
+          pendingIceCandidates.current = [];
+        }
       } catch (err) {
         console.error('Failed to set remote answer', err);
       }
-    }
-  }, [onReceiveAnswer]);
+    });
 
-  useEffect(() => {
-    if (!pcRef.current) return;
-
-    if (onReceiveIce) {
+    setOnReceiveIce(async (candidate: any) => {
+      console.log("Received ICE candidate");
+      if (!pcRef.current || !pcRef.current.remoteDescription) {
+         // Buffer candidate if remote description isn't set yet
+         pendingIceCandidates.current.push(candidate);
+         return;
+      }
       try {
-        const candidate = new RTCIceCandidate(onReceiveIce);
-        pcRef.current.addIceCandidate(candidate as any);
+        const iceCandidate = new RTCIceCandidate(candidate);
+        await pcRef.current.addIceCandidate(iceCandidate as any);
       } catch (err) {
         console.error('Failed to add ICE candidate', err);
       }
-    }
-  }, [onReceiveIce]);
+    });
+
+    return () => {
+      setOnReceiveOffer(null as any);
+      setOnReceiveAnswer(null as any);
+      setOnReceiveIce(null as any);
+    };
+  }, []);
 
   // Controls
   const toggleMic = () => {
