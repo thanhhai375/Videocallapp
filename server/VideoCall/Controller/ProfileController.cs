@@ -12,10 +12,12 @@ namespace VideoCall.Controller
     public class ProfileController : ControllerBase
     {
         private readonly AppDbContext _db;
+        private readonly IWebHostEnvironment _env;
 
-        public ProfileController(AppDbContext db)
+        public ProfileController(AppDbContext db, IWebHostEnvironment env)
         {
             _db = db;
+            _env = env;
         }
 
         private Guid CurrentUserId =>
@@ -39,6 +41,9 @@ namespace VideoCall.Controller
                 user.IsOnline,
                 user.LastSeenAt,
                 user.CreatedAt,
+                user.Job,
+                user.DateOfBirth,
+                user.Gender
             });
         }
 
@@ -62,8 +67,22 @@ namespace VideoCall.Controller
             if (dto.Bio != null)
                 user.Bio = dto.Bio;
 
-            if (!string.IsNullOrWhiteSpace(dto.Email))
+            if (dto.Email != null)
                 user.Email = dto.Email;
+                
+            if (dto.Job != null)
+                user.Job = dto.Job;
+                
+            if (dto.DateOfBirth != null)
+            {
+                if (DateTime.TryParse(dto.DateOfBirth, out var parsedDate))
+                {
+                    user.DateOfBirth = parsedDate;
+                }
+            }
+                
+            if (dto.Gender != null)
+                user.Gender = dto.Gender;
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "Cập nhật thành công", user.Username, user.Bio });
@@ -81,6 +100,33 @@ namespace VideoCall.Controller
 
             return Ok(new { message = "Ảnh đại diện đã được cập nhật", avatarUrl = dto.AvatarUrl });
         }
+
+        // POST /api/profile/feedback - Submit bug report / feedback
+        [HttpPost("feedback")]
+        public async Task<IActionResult> SubmitFeedback([FromBody] SubmitFeedbackDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Description))
+                return BadRequest(new { message = "Mô tả sự cố không được để trống" });
+
+            var feedbacksPath = Path.Combine(_env.WebRootPath, "feedbacks");
+            Directory.CreateDirectory(feedbacksPath);
+
+            var feedbackData = new
+            {
+                Id = Guid.NewGuid(),
+                UserId = CurrentUserId,
+                Title = dto.Title,
+                Description = dto.Description,
+                ScreenshotUrl = dto.ScreenshotUrl,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var jsonContent = System.Text.Json.JsonSerializer.Serialize(feedbackData, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            var filePath = Path.Combine(feedbacksPath, $"{feedbackData.Id}.json");
+            await System.IO.File.WriteAllTextAsync(filePath, jsonContent);
+
+            return Ok(new { message = "Đã gửi báo cáo sự cố thành công!" });
+        }
     }
 
     public class UpdateProfileDto
@@ -88,10 +134,20 @@ namespace VideoCall.Controller
         public string? Username { get; set; }
         public string? Bio { get; set; }
         public string? Email { get; set; }
+        public string? Job { get; set; }
+        public string? DateOfBirth { get; set; }
+        public string? Gender { get; set; }
     }
 
     public class UpdateAvatarDto
     {
         public string AvatarUrl { get; set; } = string.Empty;
+    }
+
+    public class SubmitFeedbackDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string? ScreenshotUrl { get; set; }
     }
 }

@@ -6,15 +6,18 @@ import { useSignalR } from '@shared/hooks/useSignalR';
 import { useChatStore } from '@features/chat/store/chatStore';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { useUserStore } from '@features/contacts/store/userStore';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { ChatInput } from '@features/chat/components/ChatInput';
 import { MessageBubble } from '@features/chat/components/MessageBubble';
 import { Avatar } from '@shared/components/Avatar';
+import { API_URL } from '@shared/constants/config';
 
 export default function ChatRoomScreen() {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const { id, name, connectionId } = useLocalSearchParams<{ id: string, name: string, connectionId: string }>();
-  const { userName } = useAuthStore();
+  const { userName, accessToken } = useAuthStore();
   const { getUserById } = useUserStore();
   const { getMessages, typingStatus, markMessageSeen } = useChatStore();
   const { sendMessage, getChatHistory, callFriend, sendTypingStarted, sendTypingEnded, sendMarkMessageSeen } = useSignalR();
@@ -74,6 +77,60 @@ export default function ChatRoomScreen() {
     }
   };
 
+  const handleBlockUser = async () => {
+    Alert.alert(
+      'Chặn người dùng',
+      `Bạn có chắc chắn muốn chặn ${name}? Bạn sẽ không nhận được tin nhắn từ người này nữa.`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Chặn',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const res = await fetch(`${API_URL}/friends/block/${id}`, {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              if (res.ok) {
+                Alert.alert('Thành công', 'Đã chặn người dùng này.');
+                router.back();
+              } else {
+                const errData = await res.json();
+                Alert.alert('Lỗi', errData.message || 'Không thể chặn người dùng.');
+              }
+            } catch (err) {
+              Alert.alert('Lỗi', 'Lỗi kết nối.');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleAddFriendDirectly = async () => {
+    try {
+      const res = await fetch(`${API_URL}/friends/request-by-id/${id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        Alert.alert('Thành công', data.message || 'Đã gửi lời mời kết bạn!');
+      } else {
+        Alert.alert('Thông báo', data.message || 'Không thể gửi lời mời.');
+      }
+    } catch (err) {
+      Alert.alert('Lỗi', 'Lỗi kết nối.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -96,6 +153,7 @@ export default function ChatRoomScreen() {
               name="call" 
               size={24} 
               color={user?.connectionId ? Colors.primary : Colors.textMuted} 
+              disabled={!user?.connectionId}
             />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconButtonRight} onPress={handleVideoCall}>
@@ -103,6 +161,7 @@ export default function ChatRoomScreen() {
               name="videocam" 
               size={28} 
               color={user?.connectionId ? Colors.primary : Colors.textMuted} 
+              disabled={!user?.connectionId}
             />
           </TouchableOpacity>
         </View>
@@ -123,7 +182,28 @@ export default function ChatRoomScreen() {
             <View style={styles.chatHeaderInfo}>
               <Avatar name={name || '?'} size="xl" />
               <Text style={styles.chatHeaderName}>{name}</Text>
-              <Text style={styles.chatHeaderSubtitle}>Các bạn là bạn bè trên VideoCallApp</Text>
+              <Text style={styles.chatHeaderSubtitle}>
+                {user ? 'Các bạn là bạn bè trên VideoCallApp' : 'Người này chưa có trong danh sách bạn bè của bạn'}
+              </Text>
+              {!user && (
+                <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: Colors.surfaceElevated }]}
+                    onPress={handleBlockUser}
+                  >
+                    <Ionicons name="ban-outline" size={16} color={Colors.text} style={{ marginRight: 6 }} />
+                    <Text style={{ color: Colors.text, fontWeight: '600', fontSize: 14 }}>Chặn / Spam</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity
+                    style={[styles.actionButton, { backgroundColor: Colors.primary }]}
+                    onPress={handleAddFriendDirectly}
+                  >
+                    <Ionicons name="person-add-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>Kết bạn</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           }
           renderItem={({ item, index }) => {
@@ -163,7 +243,7 @@ export default function ChatRoomScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.bg,
@@ -233,5 +313,14 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
 });
