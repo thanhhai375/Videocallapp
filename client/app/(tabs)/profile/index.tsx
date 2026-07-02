@@ -13,16 +13,9 @@ import { Layout } from '@shared/constants/layout';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { API_URL } from '@shared/constants/config';
 
-interface ProfileData {
-  id: string;
-  username: string;
-  phoneNumber: string;
-  email?: string;
-  profilePictureUrl?: string;
-  bio?: string;
-  isOnline: boolean;
-  createdAt: string;
-}
+import { ProfileData } from '@features/profile/types';
+import { EditProfileModal } from '@features/profile/components/EditProfileModal';
+import { SettingItem } from '@features/profile/components/SettingItem';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -64,25 +57,7 @@ export default function ProfileScreen() {
     AsyncStorage.getItem('activeStatus').then(v => { if (v !== null) setIsActiveStatus(v === 'true'); });
   }, [accessToken]);
 
-  const handleSaveInfo = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch(`${API_URL}/profile`, {
-        method: 'PUT',
-        headers: authHeaders,
-        body: JSON.stringify({ username: editUsername, bio: editBio }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        Alert.alert('✅', data.message);
-        setEditModalVisible(false);
-        fetchProfile();
-      } else {
-        Alert.alert('Lỗi', data.message);
-      }
-    } catch { Alert.alert('Lỗi', 'Không thể kết nối máy chủ'); }
-    finally { setSaving(false); }
-  };
+  // Logic extracted to EditProfileModal
 
   const handleChangeAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -150,18 +125,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const renderSettingItem = (icon: any, title: string, subtitle?: string, action?: () => void, rightElement?: React.ReactNode, danger?: boolean) => (
-    <TouchableOpacity style={styles.settingItem} onPress={action} disabled={!action}>
-      <View style={[styles.settingIconBox, danger && { backgroundColor: 'rgba(255, 68, 68, 0.1)' }]}>
-        <Ionicons name={icon} size={22} color={danger ? Colors.danger : Colors.text} />
-      </View>
-      <View style={styles.settingTextContainer}>
-        <Text style={[styles.settingTitle, danger && { color: Colors.danger }]}>{title}</Text>
-        {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
-      </View>
-      {rightElement ? rightElement : (action ? <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} /> : null)}
-    </TouchableOpacity>
-  );
+
 
   return (
     <View style={styles.container}>
@@ -199,69 +163,37 @@ export default function ProfileScreen() {
         {/* Section: Account */}
         <Text style={styles.sectionHeader}>Tài khoản</Text>
         <View style={styles.sectionContainer}>
-          {renderSettingItem('person-outline', 'Cập nhật thông tin', 'Tên, Tiểu sử', () => setEditModalVisible(true))}
-          {renderSettingItem('shield-checkmark-outline', 'Bảo mật', 'Đổi mật khẩu', () => Alert.alert('Thông báo', 'Tính năng đang được phát triển!'))}
+          <SettingItem icon="person-outline" title="Cập nhật thông tin" subtitle="Tên, Tiểu sử" action={() => setEditModalVisible(true)} />
+          <SettingItem icon="shield-checkmark-outline" title="Bảo mật" subtitle="Đổi mật khẩu" action={() => Alert.alert('Thông báo', 'Tính năng đang được phát triển!')} />
         </View>
 
         {/* Section: Preferences */}
         <Text style={styles.sectionHeader}>Tùy chọn</Text>
         <View style={styles.sectionContainer}>
-          {renderSettingItem('moon-outline', 'Chế độ tối', 'Giao diện ứng dụng', undefined, 
-            <Switch value={isDarkMode} onValueChange={toggleDarkMode} trackColor={{ true: Colors.primary }} />
-          )}
-          {renderSettingItem('ellipse-outline', 'Trạng thái hoạt động', 'Hiển thị khi bạn online', undefined, 
-            <Switch value={isActiveStatus} onValueChange={toggleActiveStatus} trackColor={{ true: Colors.primary }} />
-          )}
-          {renderSettingItem('notifications-outline', 'Thông báo & Âm thanh', 'Nhạc chuông, rung', () => Alert.alert('Thông báo', 'Tính năng đang được phát triển!'))}
+          <SettingItem icon="moon-outline" title="Chế độ tối" subtitle="Giao diện ứng dụng" 
+            rightElement={<Switch value={isDarkMode} onValueChange={toggleDarkMode} trackColor={{ true: Colors.primary }} />} 
+          />
+          <SettingItem icon="ellipse-outline" title="Trạng thái hoạt động" subtitle="Hiển thị khi bạn online" 
+            rightElement={<Switch value={isActiveStatus} onValueChange={toggleActiveStatus} trackColor={{ true: Colors.primary }} />} 
+          />
+          <SettingItem icon="notifications-outline" title="Thông báo & Âm thanh" subtitle="Nhạc chuông, rung" action={() => Alert.alert('Thông báo', 'Tính năng đang được phát triển!')} />
         </View>
 
         {/* Section: Danger Zone */}
         <View style={[styles.sectionContainer, { marginTop: 24 }]}>
-          {renderSettingItem('log-out-outline', 'Đăng xuất', undefined, handleLogout, undefined, true)}
+          <SettingItem icon="log-out-outline" title="Đăng xuất" action={handleLogout} danger />
         </View>
 
       </ScrollView>
 
       {/* Edit Profile Modal */}
-      <Modal visible={isEditModalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chỉnh sửa thông tin</Text>
-              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            
-            <Text style={styles.inputLabel}>Tên hiển thị</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={editUsername}
-              onChangeText={setEditUsername}
-              placeholder="Nhập tên của bạn"
-              placeholderTextColor={Colors.textMuted}
-            />
-
-            <Text style={styles.inputLabel}>Tiểu sử</Text>
-            <TextInput
-              style={[styles.modalInput, { height: 80, textAlignVertical: 'top' }]}
-              value={editBio}
-              onChangeText={setEditBio}
-              placeholder="Thêm vài dòng giới thiệu..."
-              placeholderTextColor={Colors.textMuted}
-              multiline
-            />
-
-            <TouchableOpacity 
-              style={[styles.saveBtn, saving && { opacity: 0.7 }]} 
-              onPress={handleSaveInfo}
-              disabled={saving}
-            >
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Lưu thay đổi</Text>}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <EditProfileModal
+        visible={isEditModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        onSuccess={fetchProfile}
+        profile={profile}
+        accessToken={accessToken}
+      />
 
     </View>
   );
@@ -316,83 +248,5 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
   },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  settingIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  settingTextContainer: {
-    flex: 1,
-  },
-  settingTitle: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  settingSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: Colors.surfaceElevated,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    minHeight: 400,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    color: Colors.text,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  inputLabel: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
-  modalInput: {
-    backgroundColor: Colors.surfaceInput,
-    color: Colors.text,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    marginBottom: 20,
-  },
-  saveBtn: {
-    backgroundColor: Colors.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  saveBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+
 });
