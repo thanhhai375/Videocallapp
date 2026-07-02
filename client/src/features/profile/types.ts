@@ -7,4 +7,7 @@ export interface ProfileData {
   bio?: string;
   isOnline: boolean;
   createdAt: string;
+  job?: string;
+  dateOfBirth?: string;
+  gender?: string;
 }

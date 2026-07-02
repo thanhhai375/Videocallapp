@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 
 interface Props {
   icon: keyof typeof Ionicons.glyphMap;
@@ -10,11 +10,19 @@ interface Props {
   action?: () => void;
   rightElement?: React.ReactNode;
   danger?: boolean;
+  isLast?: boolean;
 }
 
-export function SettingItem({ icon, title, subtitle, action, rightElement, danger }: Props) {
+export function SettingItem({ icon, title, subtitle, action, rightElement, danger, isLast }: Props) {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
+
   return (
-    <TouchableOpacity style={styles.settingItem} onPress={action} disabled={!action}>
+    <TouchableOpacity 
+      style={[styles.settingItem, isLast && { borderBottomWidth: 0 }]} 
+      onPress={action} 
+      disabled={!action}
+    >
       <View style={[styles.settingIconBox, danger && { backgroundColor: 'rgba(255, 68, 68, 0.1)' }]}>
         <Ionicons name={icon} size={22} color={danger ? Colors.danger : Colors.text} />
       </View>
@@ -27,19 +35,19 @@ export function SettingItem({ icon, title, subtitle, action, rightElement, dange
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: Colors.divider,
   },
   settingIconBox: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: Colors.primaryDim, // use primaryDim instead of hardcoded white
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

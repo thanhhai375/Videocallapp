@@ -7,11 +7,13 @@ import { RTCView } from 'react-native-webrtc';
 import { BlurView } from 'expo-blur';
 import { useWebRTC } from '../../src/features/calls/hooks/useWebRTC';
 import { useSignalR } from '../../src/shared/hooks/useSignalR';
-import { Colors } from '../../src/shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 import { IconButton } from '../../src/shared/components/IconButton';
 import { Avatar } from '../../src/shared/components/Avatar';
 
 export default function CallRoomScreen() {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const { id, name, connectionId, isCaller, sdp } = useLocalSearchParams<{
     id: string;
     name: string;
@@ -123,7 +125,7 @@ export default function CallRoomScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',

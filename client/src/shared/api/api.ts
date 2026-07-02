@@ -18,14 +18,15 @@ export interface LoginResponse {
  * Đăng nhập và nhận token (Base64 của userId)
  */
 export const login = async (
-  name: string,
+  phoneNumber: string,
   password: string
 ): Promise<LoginResponse> => {
-  const response = await api.post<LoginResponse>("/auth/login", {
-    name,
-    password,
-  });
+  const response = await api.post<LoginResponse>("/auth/login",{
+  phoneNumber: phoneNumber,
+  password: password,
+});
   return response.data;
 };
+  
 
 export default api;

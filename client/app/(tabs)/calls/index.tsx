@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { Avatar } from '@shared/components/Avatar';
 import { useAuthStore } from '@features/auth/store/authStore';
@@ -19,6 +19,8 @@ interface CallRecord {
 }
 
 export default function CallsScreen() {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const insets = useSafeAreaInsets();
   const { accessToken } = useAuthStore();
   const [calls, setCalls] = useState<CallRecord[]>([]);
@@ -138,7 +140,7 @@ export default function CallsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

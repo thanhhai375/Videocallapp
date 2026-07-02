@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams } from 'expo-router';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { API_URL } from '@shared/constants/config';
@@ -20,6 +20,8 @@ import { StoryViewerModal } from '@features/stories/components/StoryViewerModal'
 const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function StoriesScreen() {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const insets = useSafeAreaInsets();
   const { accessToken } = useAuthStore();
   const { openStoryUserId } = useLocalSearchParams<{ openStoryUserId?: string }>();
@@ -158,7 +160,7 @@ export default function StoriesScreen() {
 
       <FlatList
         data={gridData}
-        keyExtractor={(item, index) => 'isCreate' in item ? 'create' : (item as StoryGroup).user.id}
+        keyExtractor={(item: any, index) => item.isCreate ? 'create' : item.user.id}
         numColumns={2}
         renderItem={renderGridItem}
         contentContainerStyle={styles.gridContainer}
@@ -189,7 +191,7 @@ export default function StoriesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   center: { justifyContent: 'center', alignItems: 'center' },
   header: {
@@ -262,7 +264,8 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   storyCardOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
   storyCardAvatarRing: {

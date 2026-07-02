@@ -57,6 +57,45 @@ namespace VideoCall.Controller
             return Ok(new { message = $"Đã gửi lời mời kết bạn đến {target.Username}!" });
         }
 
+        // POST /api/friends/request-by-id/{userId}
+        [HttpPost("request-by-id/{userId}")]
+        public async Task<IActionResult> SendRequestById(Guid userId)
+        {
+            var target = await _db.Users.FindAsync(userId);
+            if (target == null) return NotFound(new { message = "Không tìm thấy người dùng" });
+
+            if (target.Id == CurrentUserId)
+                return BadRequest(new { message = "Không thể kết bạn với chính mình" });
+
+            // Check if already friends
+            var alreadyFriends = await _db.Friendships.AnyAsync(f =>
+                (f.User1Id == CurrentUserId && f.User2Id == target.Id) ||
+                (f.User1Id == target.Id && f.User2Id == CurrentUserId));
+            if (alreadyFriends) return Conflict(new { message = "Đã là bạn bè" });
+
+            // Check existing pending request
+            var exists = await _db.FriendRequests.AnyAsync(r =>
+                r.SenderId == CurrentUserId && r.ReceiverId == target.Id &&
+                r.Status == FriendRequestStatus.Pending);
+            if (exists) return Conflict(new { message = "Lời mời đã được gửi, đang chờ xác nhận" });
+
+            // Check if they blocked you
+            var blocked = await _db.BlockedUsers.AnyAsync(b =>
+                b.BlockerId == target.Id && b.BlockedId == CurrentUserId);
+            if (blocked) return NotFound(new { message = "Không tìm thấy người dùng" });
+
+            var friendRequest = new FriendRequest
+            {
+                SenderId = CurrentUserId,
+                ReceiverId = target.Id,
+                Message = "Xin chào, mình kết bạn nhé!"
+            };
+            _db.FriendRequests.Add(friendRequest);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = $"Đã gửi lời mời kết bạn đến {target.Username}!" });
+        }
+
         // GET /api/friends/pending
         [HttpGet("pending")]
         public async Task<IActionResult> GetPendingRequests()
@@ -174,6 +213,39 @@ namespace VideoCall.Controller
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "Đã chặn người dùng" });
+        }
+
+        // GET /api/friends/blocked - List all blocked users
+        [HttpGet("blocked")]
+        public async Task<IActionResult> GetBlockedUsers()
+        {
+            var blockedList = await _db.BlockedUsers
+                .Include(b => b.Blocked)
+                .Where(b => b.BlockerId == CurrentUserId)
+                .Select(b => new
+                {
+                    id = b.Blocked.Id,
+                    username = b.Blocked.Username,
+                    profilePictureUrl = b.Blocked.ProfilePictureUrl
+                })
+                .ToListAsync();
+
+            return Ok(blockedList);
+        }
+
+        // POST /api/friends/unblock/{userId} - Unblock a user
+        [HttpPost("unblock/{userId}")]
+        public async Task<IActionResult> UnblockUser(Guid userId)
+        {
+            var blockedRecord = await _db.BlockedUsers
+                .FirstOrDefaultAsync(b => b.BlockerId == CurrentUserId && b.BlockedId == userId);
+
+            if (blockedRecord == null) return NotFound(new { message = "Không tìm thấy người dùng này trong danh sách chặn" });
+
+            _db.BlockedUsers.Remove(blockedRecord);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "Đã bỏ chặn người dùng" });
         }
 
         public record FriendRequestBody(string PhoneNumber, string? Message);

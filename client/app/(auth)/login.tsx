@@ -5,6 +5,7 @@ import {
 import { useState } from "react";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { Colors } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
@@ -36,6 +37,36 @@ export default function LoginScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");
+      
+      // Lưu thông tin đăng nhập bất đồng bộ (không chặn chuyển trang)
+      const saveLoginMeta = async () => {
+        const now = new Date();
+        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} - ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
+        const deviceModel = Platform.OS === 'android' ? 'Thiết bị Android' : 'Thiết bị iOS';
+        
+        await AsyncStorage.setItem("loginTime", timeStr);
+        await AsyncStorage.setItem("storedPassword", password);
+
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 2000);
+          const locationRes = await fetch("https://ipapi.co/json/", { signal: controller.signal });
+          clearTimeout(timeoutId);
+          
+          if (locationRes.ok) {
+            const locData = await locationRes.json();
+            const locationStr = `${locData.city || "Hà Nội"}, ${locData.country_name || "Việt Nam"} (IP: ${locData.ip})`;
+            await AsyncStorage.setItem("loginLocation", `${deviceModel} • ${locationStr}`);
+            return;
+          }
+        } catch (e) {
+          // Bỏ qua nếu lỗi mạng hoặc timeout
+        }
+        await AsyncStorage.setItem("loginLocation", `${deviceModel} • Hà Nội, Việt Nam`);
+      };
+
+      saveLoginMeta().catch(() => {});
+
       await setAuth(data.accessToken, data.refreshToken, data.user);
       router.replace("/(tabs)/chats");
     } catch (err: any) {

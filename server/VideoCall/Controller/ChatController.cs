@@ -101,32 +101,162 @@ namespace VideoCall.Controller
                 .Select(f => f.User1Id == CurrentUserId ? f.User2Id : f.User1Id)
                 .ToListAsync();
 
-            var result = new List<object>();
-            foreach (var friendId in friendIds)
+            var sentMessageUserIds = await _db.Messages
+                .Where(m => m.SenderId == CurrentUserId)
+                .Select(m => m.ReceiverId)
+                .Distinct()
+                .ToListAsync();
+
+            var blockedUserIds = await _db.BlockedUsers
+                .Where(bu => bu.BlockerId == CurrentUserId)
+                .Select(bu => bu.BlockedId)
+                .ToListAsync();
+
+            // Main inbox = Friends OR (Non-friends who we have sent messages to) EXCEPT blocked users
+            var mainInboxUserIds = friendIds.Union(sentMessageUserIds)
+                .Except(blockedUserIds)
+                .Where(id => id != CurrentUserId)
+                .Distinct()
+                .ToList();
+
+            var result = await BuildConversationList(mainInboxUserIds);
+            return Ok(result);
+        }
+
+        // GET /api/chat/requests - List all message requests (not friends, no reply, not blocked, not spam)
+        [HttpGet("requests")]
+        public async Task<IActionResult> GetRequests()
+        {
+            var friendIds = await _db.Friendships
+                .Where(f => f.User1Id == CurrentUserId || f.User2Id == CurrentUserId)
+                .Select(f => f.User1Id == CurrentUserId ? f.User2Id : f.User1Id)
+                .ToListAsync();
+
+            var sentMessageUserIds = await _db.Messages
+                .Where(m => m.SenderId == CurrentUserId)
+                .Select(m => m.ReceiverId)
+                .Distinct()
+                .ToListAsync();
+
+            var blockedUserIds = await _db.BlockedUsers
+                .Where(bu => bu.BlockerId == CurrentUserId)
+                .Select(bu => bu.BlockedId)
+                .ToListAsync();
+
+            var receivedMessageUserIds = await _db.Messages
+                .Where(m => m.ReceiverId == CurrentUserId)
+                .Select(m => m.SenderId)
+                .Distinct()
+                .ToListAsync();
+
+            var potentialRequestUserIds = receivedMessageUserIds
+                .Except(friendIds)
+                .Except(sentMessageUserIds)
+                .Except(blockedUserIds)
+                .Where(id => id != CurrentUserId)
+                .Distinct()
+                .ToList();
+
+            var allRequests = await BuildConversationList(potentialRequestUserIds);
+            
+            // Filter out spam messages
+            var result = allRequests.Where(r => 
             {
-                var friend = await _db.Users.FindAsync(friendId);
-                if (friend == null) continue;
+                var lastMsg = ((dynamic)r).lastMessage;
+                return lastMsg == null || !IsSpamMessage(lastMsg.content);
+            }).ToList();
+
+            return Ok(result);
+        }
+
+        // GET /api/chat/spam - List all spam messages (not friends, no reply, and either blocked or spam content)
+        [HttpGet("spam")]
+        public async Task<IActionResult> GetSpam()
+        {
+            var friendIds = await _db.Friendships
+                .Where(f => f.User1Id == CurrentUserId || f.User2Id == CurrentUserId)
+                .Select(f => f.User1Id == CurrentUserId ? f.User2Id : f.User1Id)
+                .ToListAsync();
+
+            var sentMessageUserIds = await _db.Messages
+                .Where(m => m.SenderId == CurrentUserId)
+                .Select(m => m.ReceiverId)
+                .Distinct()
+                .ToListAsync();
+
+            var blockedUserIds = await _db.BlockedUsers
+                .Where(bu => bu.BlockerId == CurrentUserId)
+                .Select(bu => bu.BlockedId)
+                .ToListAsync();
+
+            var receivedMessageUserIds = await _db.Messages
+                .Where(m => m.ReceiverId == CurrentUserId)
+                .Select(m => m.SenderId)
+                .Distinct()
+                .ToListAsync();
+
+            // Spam includes non-friends we have received messages from, not replied to, and either blocked or spam content
+            var potentialSpamUserIds = receivedMessageUserIds
+                .Except(friendIds)
+                .Except(sentMessageUserIds)
+                .Where(id => id != CurrentUserId)
+                .Distinct()
+                .ToList();
+
+            var allPotentialSpam = await BuildConversationList(potentialSpamUserIds);
+
+            var result = allPotentialSpam.Where(r => 
+            {
+                var userId = (Guid)((dynamic)r).userId;
+                var isBlocked = blockedUserIds.Contains(userId);
+                var lastMsg = ((dynamic)r).lastMessage;
+                var isSpamContent = lastMsg != null && IsSpamMessage(lastMsg.content);
+                return isBlocked || isSpamContent;
+            }).ToList();
+
+            return Ok(result);
+        }
+
+        private bool IsSpamMessage(string content)
+        {
+            if (string.IsNullOrEmpty(content)) return false;
+            var lowerContent = content.ToLower();
+            string[] spamKeywords = { "quảng cáo", "việc nhẹ", "lừa đảo", "trúng thưởng", "http", "https", "link", "vay tiền", "tuyển dụng", "nhận quà", "casino", "đánh bạc", "mua bán", "khuyến mãi" };
+            foreach (var keyword in spamKeywords)
+            {
+                if (lowerContent.Contains(keyword)) return true;
+            }
+            return false;
+        }
+
+        private async Task<List<object>> BuildConversationList(List<Guid> userIds)
+        {
+            var result = new List<object>();
+            foreach (var userId in userIds)
+            {
+                var user = await _db.Users.FindAsync(userId);
+                if (user == null) continue;
 
                 var lastMessage = await _db.Messages
                     .Where(m =>
-                        (m.SenderId == CurrentUserId && m.ReceiverId == friendId) ||
-                        (m.SenderId == friendId && m.ReceiverId == CurrentUserId))
+                        (m.SenderId == CurrentUserId && m.ReceiverId == userId) ||
+                        (m.SenderId == userId && m.ReceiverId == CurrentUserId))
                     .OrderByDescending(m => m.CreatedAt)
                     .FirstOrDefaultAsync();
 
                 var unreadCount = await _db.Messages
-                    .Where(m => m.SenderId == friendId && m.ReceiverId == CurrentUserId)
+                    .Where(m => m.SenderId == userId && m.ReceiverId == CurrentUserId)
                     .Where(m => !m.ReadReceipts.Any(r => r.ReaderId == CurrentUserId))
                     .CountAsync();
 
                 result.Add(new
                 {
-                    userId = friend.Id,
-                    username = friend.Username,
-                    profilePictureUrl = friend.ProfilePictureUrl,
-                    isOnline = friend.IsOnline,
-                    lastSeenAt = friend.LastSeenAt,
-                    connectionId = friend.ConnectionId,
+                    userId = user.Id,
+                    username = user.Username,
+                    profilePictureUrl = user.ProfilePictureUrl,
+                    isOnline = user.IsOnline,
+                    lastSeenAt = user.LastSeenAt,
+                    connectionId = user.ConnectionId,
                     lastMessage = lastMessage == null ? null : new
                     {
                         content = lastMessage.IsDeleted ? "Tin nhắn đã bị xóa" : lastMessage.Content,
@@ -137,8 +267,7 @@ namespace VideoCall.Controller
                     unreadCount
                 });
             }
-
-            return Ok(result.OrderByDescending(r => ((dynamic)r).lastMessage?.createdAt));
+            return result.OrderByDescending(r => ((dynamic)r).lastMessage?.createdAt).ToList();
         }
     }
 }

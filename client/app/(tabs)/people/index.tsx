@@ -22,10 +22,14 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@shared/constants/colors';
+import { useTheme, Colors } from '@shared/constants/colors';
+import { Layout } from '@shared/constants/layout';
+import { Avatar } from '@shared/components/Avatar';
 import { ShimmerList } from '@shared/components/ShimmerCard';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { API_URL } from '@shared/constants/config';
+
+let styles: any;
 
 // ─── Constants ─────────────────────────────────────────────────────
 const { width: SW } = Dimensions.get('window');
@@ -674,6 +678,8 @@ function AddFriendModal({ visible, onClose, accessToken }: {
 //  MAIN SCREEN
 // ═══════════════════════════════════════════════════════════════════
 export default function PeopleScreen() {
+  const Colors = useTheme();
+  styles = getStyles(Colors);
   const insets = useSafeAreaInsets();
   const { accessToken, userName } = useAuthStore();
   const [tab,        setTab]        = useState<Tab>('friends');
@@ -924,10 +930,7 @@ export default function PeopleScreen() {
   );
 }
 
-// ═══════════════════════════════════════════════════════════════════
-//  STYLES
-// ═══════════════════════════════════════════════════════════════════
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0A0A0F' },
 
   // Header

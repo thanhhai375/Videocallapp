@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useAuthStore } from "@features/auth/store/authStore";
+import { useThemeStore } from "@shared/store/themeStore";
 import { useSignalR } from "@shared/hooks/useSignalR";
 import { IncomingCallModal } from "@features/calls/components/IncomingCallModal";
 
 export default function RootLayout() {
   const { loadAuth, isLoggedIn } = useAuthStore();
+  const { loadTheme, isDarkMode } = useThemeStore();
   const [isReady, setIsReady] = useState(false);
   
   // Initialize global SignalR listeners (including incoming calls)
@@ -14,7 +16,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     // Load token từ AsyncStorage khi khởi động
-    loadAuth().then(() => {
+    Promise.all([loadAuth(), loadTheme()]).then(() => {
       setIsReady(true);
       if (isLoggedIn) {
         router.replace("/(tabs)/chats");
@@ -43,7 +45,7 @@ export default function RootLayout() {
 
   return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

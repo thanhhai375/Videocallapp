@@ -1,29 +1,65 @@
-import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, Alert, Image } from 'react-native';
-import { router } from 'expo-router';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, Alert, Image, RefreshControl } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserStore } from '@features/contacts/store/userStore';
 import { useChatStore } from '@features/chat/store/chatStore';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { useSignalR } from '@shared/hooks/useSignalR';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { API_URL } from '@shared/constants/config';
 import { ConversationItem } from '@features/chat/components/ConversationItem';
 import { Avatar } from '@shared/components/Avatar';
 
 export default function ChatsScreen() {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
   const { isConnected } = useSignalR();
-  const { users } = useUserStore();
-  const messagesByUserId = useChatStore(state => state.messagesByUserId);
+  const { users, getUserById } = useUserStore();
+  const { getLastMessage } = useChatStore();
+  const messagesState = useChatStore(state => state.messagesByUserId); // Trigger reactive updates on message events
   const { userName, accessToken } = useAuthStore();
+
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [isAddModalVisible, setAddModalVisible] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isAdding, setIsAdding] = useState(false);
+
+  const fetchConversations = async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch(`${API_URL}/chat/conversations`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConversations(data);
+      }
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchConversations();
+    }, [accessToken, messagesState])
+  );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchConversations();
+  };
 
   const handleAddFriend = async () => {
     if (!phoneNumber) return;
@@ -54,7 +90,7 @@ export default function ChatsScreen() {
 
   const [stories, setStories] = useState<any[]>([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Fetch stories to determine who has a story
     const fetchStories = async () => {
       try {
@@ -73,15 +109,13 @@ export default function ChatsScreen() {
   const activeFriends = users.filter(u => u.name !== userName);
   const activeListItems = [{ id: 'my-story', isMyStory: true }, ...activeFriends];
 
-  const chatList = [...users]
-    .filter(u => u.name !== userName && u.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const chatList = conversations
+    .filter(c => c.username.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
-      const msgsA = messagesByUserId[a.id] || [];
-      const msgsB = messagesByUserId[b.id] || [];
-      const msgA = msgsA.length > 0 ? msgsA[msgsA.length - 1] : null;
-      const msgB = msgsB.length > 0 ? msgsB[msgsB.length - 1] : null;
-      const timeA = msgA?.timestamp || 0;
-      const timeB = msgB?.timestamp || 0;
+      const msgA = getLastMessage(a.userId);
+      const msgB = getLastMessage(b.userId);
+      const timeA = msgA ? msgA.timestamp : (a.lastMessage ? new Date(a.lastMessage.createdAt).getTime() : 0);
+      const timeB = msgB ? msgB.timestamp : (b.lastMessage ? new Date(b.lastMessage.createdAt).getTime() : 0);
       return timeB - timeA;
     });
 
@@ -135,7 +169,6 @@ export default function ChatsScreen() {
       </TouchableOpacity>
     );
   };
-
 
   return (
     <View style={styles.container}>
@@ -195,7 +228,16 @@ export default function ChatsScreen() {
         </View>
       </Modal>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.primary}
+          />
+        }
+      >
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBox}>
@@ -224,27 +266,28 @@ export default function ChatsScreen() {
 
         {/* Conversations List */}
         <View style={styles.chatListSection}>
-          {chatList.map((user, index) => {
-            const msgs = messagesByUserId[user.id] || [];
-            const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+          {chatList.map((c, index) => {
+            const lastMsg = getLastMessage(c.userId);
+            const content = lastMsg ? lastMsg.content : (c.lastMessage?.content || 'Chưa có tin nhắn');
+            
             let timeStr = '';
-            if (lastMsg) {
-              const d = new Date(lastMsg.timestamp);
+            const timestamp = lastMsg ? lastMsg.timestamp : (c.lastMessage ? new Date(c.lastMessage.createdAt).getTime() : null);
+            if (timestamp) {
+              const d = new Date(timestamp);
               timeStr = `${d.getHours()}:${d.getMinutes().toString().padStart(2, '0')}`;
             }
 
-            // Get real unread status from store if needed. For now, 0.
-            const unreadCount = 0; 
+            const isOnline = getUserById(c.userId)?.isOnline ?? c.isOnline;
 
             return (
               <ConversationItem
-                key={user.id}
-                name={user.name}
-                isOnline={user.isOnline}
-                lastMessage={lastMsg?.content || 'Chưa có tin nhắn'}
-                time={timeStr || ''}
-                unreadCount={unreadCount}
-                onPress={() => router.push(`/chat/${user.id}?name=${user.name}&connectionId=${user.connectionId || ''}` as any)}
+                key={c.userId}
+                name={c.username}
+                isOnline={isOnline}
+                lastMessage={content}
+                time={timeStr}
+                unreadCount={c.unreadCount}
+                onPress={() => router.push(`/chat/${c.userId}?name=${c.username}&connectionId=${c.connectionId || ''}` as any)}
               />
             );
           })}
@@ -254,7 +297,7 @@ export default function ChatsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.bg,

@@ -11,6 +11,9 @@ namespace VideoCall.Domain.Entities
         public string? Bio { get; set; }
         public bool IsOnline { get; set; } = false;
         public string? ConnectionId { get; set; }
+        public string? Job { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+        public string? Gender { get; set; }
         public DateTime? LastSeenAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsEmailVerified { get; set; } = false;
