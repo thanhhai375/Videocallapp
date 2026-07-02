@@ -1,17 +1,18 @@
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Image, Dimensions
 } from "react-native";
 import { useState } from "react";
 import { router } from "expo-router";
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { Colors } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { API_URL } from '@shared/constants/config';
 
 type Tab = 'login' | 'register';
+
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const [tab, setTab] = useState<Tab>('login');
@@ -21,7 +22,6 @@ export default function LoginScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { setAuth } = useAuthStore();
-  const insets = useSafeAreaInsets();
 
   const handleLogin = async () => {
     if (!phoneNumber.trim() || !password.trim()) {
@@ -37,36 +37,6 @@ export default function LoginScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Đăng nhập thất bại");
-      
-      // Lưu thông tin đăng nhập bất đồng bộ (không chặn chuyển trang)
-      const saveLoginMeta = async () => {
-        const now = new Date();
-        const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')} - ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
-        const deviceModel = Platform.OS === 'android' ? 'Thiết bị Android' : 'Thiết bị iOS';
-        
-        await AsyncStorage.setItem("loginTime", timeStr);
-        await AsyncStorage.setItem("storedPassword", password);
-
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 2000);
-          const locationRes = await fetch("https://ipapi.co/json/", { signal: controller.signal });
-          clearTimeout(timeoutId);
-          
-          if (locationRes.ok) {
-            const locData = await locationRes.json();
-            const locationStr = `${locData.city || "Hà Nội"}, ${locData.country_name || "Việt Nam"} (IP: ${locData.ip})`;
-            await AsyncStorage.setItem("loginLocation", `${deviceModel} • ${locationStr}`);
-            return;
-          }
-        } catch (e) {
-          // Bỏ qua nếu lỗi mạng hoặc timeout
-        }
-        await AsyncStorage.setItem("loginLocation", `${deviceModel} • Hà Nội, Việt Nam`);
-      };
-
-      saveLoginMeta().catch(() => {});
-
       await setAuth(data.accessToken, data.refreshToken, data.user);
       router.replace("/(tabs)/chats");
     } catch (err: any) {
@@ -111,136 +81,149 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.container]}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-    >
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: Layout.spacing.xl }}>
-        <View style={styles.card}>
-          <Text style={styles.title}>💬 Video Call</Text>
-          <Text style={styles.subtitle}>Kết nối mọi người, mọi nơi</Text>
+    <View style={styles.container}>
+      {/* 1. Hình vệt sáng (Wave) ở dưới đáy - Đặt trực tiếp làm nền */}
+      <Image
+        source={require("../../assets/brand-wave.png")}
+        style={styles.bottomWaveImage}
+        resizeMode="stretch"
+      />
 
-          {/* Tab Switcher */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, tab === 'login' && styles.tabActive]}
-              onPress={() => setTab('login')}
-            >
-              <Text style={[styles.tabText, tab === 'login' && styles.tabTextActive]}>Đăng nhập</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, tab === 'register' && styles.tabActive]}
-              onPress={() => setTab('register')}
-            >
-              <Text style={[styles.tabText, tab === 'register' && styles.tabTextActive]}>Đăng ký</Text>
-            </TouchableOpacity>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+
+          {/* 2. Hình Header */}
+          <View style={styles.headerImageContainer}>
+            <Image
+              source={require("../../assets/brand-hero.png")}
+              style={styles.headerImage}
+              resizeMode="contain"
+            />
           </View>
 
-          {tab === 'login' ? (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Số điện thoại hoặc Tên đăng nhập"
-                placeholderTextColor={Colors.textMuted}
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-                autoCapitalize="none"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Mật khẩu"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
+          {/* 3. Form Card */}
+          <View style={styles.authCard}>
+            <View style={styles.tabsContainer}>
               <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleLogin}
-                disabled={loading}
+                style={[styles.tabButton, tab === 'login' && styles.tabActive]}
+                onPress={() => setTab('login')}
               >
-                {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Đăng nhập</Text>}
+                <Text style={[styles.tabLabel, tab === 'login' && styles.tabLabelActive]}>Đăng nhập</Text>
               </TouchableOpacity>
-              <Text style={styles.hint}>
-                Tài khoản mặc định:{"\n"}Nam (0901111111) / Hung (0902222222){"\n"}Mật khẩu: 123
-              </Text>
-            </>
-          ) : (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Tên hiển thị"
-                placeholderTextColor={Colors.textMuted}
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Số điện thoại (để kết bạn)"
-                placeholderTextColor={Colors.textMuted}
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Mật khẩu (ít nhất 6 ký tự)"
-                placeholderTextColor={Colors.textMuted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Xác nhận mật khẩu"
-                placeholderTextColor={Colors.textMuted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-              />
               <TouchableOpacity
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleRegister}
-                disabled={loading}
+                style={[styles.tabButton, tab === 'register' && styles.tabActive]}
+                onPress={() => setTab('register')}
               >
-                {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Tạo tài khoản</Text>}
+                <Text style={[styles.tabLabel, tab === 'register' && styles.tabLabelActive]}>Đăng ký</Text>
               </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            </View>
+
+            <View style={styles.formContent}>
+              {tab === 'login' ? (
+                <>
+                  <TextInput
+                    style={styles.inputField}
+                    placeholder="Số điện thoại"
+                    placeholderTextColor="rgba(0, 163, 255, 0.4)"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                  />
+                  <TextInput
+                    style={styles.inputField}
+                    placeholder="Mật khẩu"
+                    placeholderTextColor="rgba(0, 163, 255, 0.4)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                  />
+                  <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8}>
+                    <LinearGradient colors={['#00A3FF', '#0066FF']} style={styles.loginButton}>
+                      {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.loginButtonText}>Đăng nhập</Text>}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TextInput style={styles.inputField} placeholder="Tên hiển thị" placeholderTextColor="rgba(0, 163, 255, 0.4)" value={username} onChangeText={setUsername} />
+                  <TextInput style={styles.inputField} placeholder="Số điện thoại" placeholderTextColor="rgba(0, 163, 255, 0.4)" value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" />
+                  <TextInput style={styles.inputField} placeholder="Mật khẩu" placeholderTextColor="rgba(0, 163, 255, 0.4)" value={password} onChangeText={setPassword} secureTextEntry />
+                  <TextInput style={styles.inputField} placeholder="Xác nhận mật khẩu" placeholderTextColor="rgba(0, 163, 255, 0.4)" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+                  <TouchableOpacity onPress={handleRegister} disabled={loading} activeOpacity={0.8}>
+                    <LinearGradient colors={['#00A3FF', '#0066FF']} style={styles.loginButton}>
+                      {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.loginButtonText}>Tạo tài khoản</Text>}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bg },
-  card: {
-    width: "100%", maxWidth: 400, backgroundColor: Colors.surfaceElevated,
-    borderRadius: Layout.borderRadius.lg, padding: Layout.spacing.xxl, alignItems: "center",
-    alignSelf: 'center',
-    shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3,
-    shadowRadius: 16, elevation: 10,
+  // Sử dụng màu ĐEN TUYỀN để hòa nhập tuyệt đối với ảnh nền của bạn
+  container: { flex: 1, backgroundColor: '#000000' },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 30, paddingBottom: 100 },
+
+  // Hình vệt sáng ép sát xuống đáy
+  bottomWaveImage: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    width: width,
+    height: height * 0.4, // Cao 40% màn hình
+    zIndex: 0, // Nằm trên nền đen nhưng dưới Form
   },
-  title: { fontSize: 32, fontWeight: "bold", color: Colors.text, marginBottom: Layout.spacing.sm },
-  subtitle: { fontSize: 14, color: Colors.textSecondary, marginBottom: 24 },
-  tabContainer: { flexDirection: 'row', backgroundColor: Colors.surfaceInput, borderRadius: 10, marginBottom: 24, width: '100%' },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: Colors.primary },
-  tabText: { color: Colors.textSecondary, fontWeight: '600' },
-  tabTextActive: { color: '#FFF' },
-  input: {
-    width: "100%", backgroundColor: Colors.surfaceInput, borderRadius: Layout.borderRadius.md,
-    padding: Layout.spacing.md, fontSize: 16, color: Colors.text,
-    borderWidth: 1, borderColor: 'transparent', marginBottom: Layout.spacing.md,
+
+  headerImageContainer: { alignItems: 'center', marginBottom: 10, width: '100%', height: 220 },
+  headerImage: { width: '100%', height: '100%' },
+
+  authCard: {
+    backgroundColor: 'rgba(0, 15, 40, 0.8)', // Trong suốt hơn để thấy sóng phía sau
+    borderRadius: 30,
+    padding: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 163, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 30,
+    elevation: 10,
   },
-  button: {
-    width: "100%", backgroundColor: Colors.primary, borderRadius: Layout.borderRadius.md,
-    padding: Layout.spacing.md, alignItems: "center", marginTop: Layout.spacing.sm,
+  tabsContainer: { flexDirection: 'row', marginBottom: 25 },
+  tabButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 15 },
+  tabActive: { backgroundColor: '#0084FF' },
+  tabLabel: { color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', fontSize: 16 },
+  tabLabelActive: { color: '#FFF' },
+
+  formContent: { width: '100%' },
+  inputField: {
+    backgroundColor: 'rgba(0, 30, 60, 0.5)',
+    borderRadius: 15,
+    padding: 18,
+    color: '#FFF',
+    fontSize: 16,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 163, 255, 0.1)'
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: "600" },
-  hint: { marginTop: Layout.spacing.xl, fontSize: 12, color: Colors.textMuted, textAlign: "center", lineHeight: 20 },
+  loginButton: {
+    borderRadius: 15,
+    padding: 18,
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: '#00A3FF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+  },
+  loginButtonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
 });

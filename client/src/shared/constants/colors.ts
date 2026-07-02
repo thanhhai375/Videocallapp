@@ -1,78 +1,37 @@
-import { useThemeStore } from '../store/themeStore';
-
-export const darkTheme = {
+/**
+ * VideoCall App Blue Dark color palette — single source of truth for all colors.
+ * Components MUST import from here, never hardcode hex values.
+ */
+export const Colors = {
   // ── Backgrounds ───────────────────────────────────────────
-  bg:              '#000000',   // Page background
-  surface:         '#1C1E21',   // Card / tab bar / header
-  surfaceElevated: '#242526',   // Elevated cards, modals
-  surfaceInput:    '#3A3B3C',   // Input fields
+  bg:              '#000814',   // Deep dark blue background
+  surface:         '#001D3D',   // Dark blue surface
+  surfaceElevated: '#003566',   // Elevated cards, modals
+  surfaceInput:    '#001D3D',   // Input fields
 
   // ── Brand ─────────────────────────────────────────────────
-  primary:         '#0A84FF',   // Messenger blue (was #0084FF)
-  primaryDim:      'rgba(10,132,255,0.15)',
+  primary:         '#00A3FF',   // Vibrant Electric Blue
+  primaryDim:      'rgba(0, 163, 255, 0.15)',
 
   // ── Text ──────────────────────────────────────────────────
-  text:            '#E4E6EB',   // Primary text
-  textSecondary:   '#B0B3B8',   // Secondary / subtitle
-  textMuted:       '#65676B',   // Timestamps, placeholders
+  text:            '#F8FAFC',   // Off-white primary text
+  textSecondary:   '#BAE6FD',   // Light blue secondary text
+  textMuted:       '#38B2AC',   // Teal/muted blue
 
   // ── Status ────────────────────────────────────────────────
-  online:          '#31A24C',   // Green online dot
-  danger:          '#FA3E3E',   // Red / decline
-  success:         '#31A24C',
+  online:          '#10B981',   // Emerald
+  danger:          '#EF4444',   // Red
+  success:         '#10B981',
 
   // ── Separators ────────────────────────────────────────────
-  divider:         '#3E4042',
+  divider:         '#003566',
 
   // ── Chat bubbles ──────────────────────────────────────────
-  myBubble:        '#0A84FF',
+  myBubble:        '#00A3FF',
   myBubbleText:    '#FFFFFF',
-  theirBubble:     '#3A3B3C',
-  theirBubbleText: '#E4E6EB',
+  theirBubble:     '#003566',
+  theirBubbleText: '#F8FAFC',
 
   // ── Transparent overlays ──────────────────────────────────
-  overlay:         'rgba(0,0,0,0.6)',
+  overlay:         'rgba(0,0,0,0.7)',
 } as const;
-
-export const lightTheme = {
-  // ── Backgrounds ───────────────────────────────────────────
-  bg:              '#FFFFFF',   // Page background
-  surface:         '#F0F2F5',   // Card / tab bar / header
-  surfaceElevated: '#FFFFFF',   // Elevated cards, modals
-  surfaceInput:    '#E4E6EB',   // Input fields
-
-  // ── Brand ─────────────────────────────────────────────────
-  primary:         '#0A84FF',   // Messenger blue
-  primaryDim:      'rgba(10,132,255,0.15)',
-
-  // ── Text ──────────────────────────────────────────────────
-  text:            '#050505',   // Primary text
-  textSecondary:   '#65676B',   // Secondary / subtitle
-  textMuted:       '#8D949E',   // Timestamps, placeholders
-
-  // ── Status ────────────────────────────────────────────────
-  online:          '#31A24C',   // Green online dot
-  danger:          '#FA3E3E',   // Red / decline
-  success:         '#31A24C',
-
-  // ── Separators ────────────────────────────────────────────
-  divider:         '#CED0D4',
-
-  // ── Chat bubbles ──────────────────────────────────────────
-  myBubble:        '#0A84FF',
-  myBubbleText:    '#FFFFFF',
-  theirBubble:     '#E4E6EB',
-  theirBubbleText: '#050505',
-
-  // ── Transparent overlays ──────────────────────────────────
-  overlay:         'rgba(255,255,255,0.6)',
-} as const;
-
-// Helper hook
-export const useTheme = () => {
-  const isDarkMode = useThemeStore((state) => state.isDarkMode);
-  return isDarkMode ? darkTheme : lightTheme;
-};
-
-// Fallback legacy export to prevent immediate crashes before all files are refactored
-export const Colors = darkTheme;
