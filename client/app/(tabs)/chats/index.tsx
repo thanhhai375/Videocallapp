@@ -18,7 +18,7 @@ export default function ChatsScreen() {
   const insets = useSafeAreaInsets();
   const { isConnected } = useSignalR();
   const { users } = useUserStore();
-  const { getLastMessage } = useChatStore();
+  const messagesByUserId = useChatStore(state => state.messagesByUserId);
   const { userName, accessToken } = useAuthStore();
 
   const [isAddModalVisible, setAddModalVisible] = useState(false);
@@ -76,8 +76,10 @@ export default function ChatsScreen() {
   const chatList = [...users]
     .filter(u => u.name !== userName && u.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
-      const msgA = getLastMessage(a.id);
-      const msgB = getLastMessage(b.id);
+      const msgsA = messagesByUserId[a.id] || [];
+      const msgsB = messagesByUserId[b.id] || [];
+      const msgA = msgsA.length > 0 ? msgsA[msgsA.length - 1] : null;
+      const msgB = msgsB.length > 0 ? msgsB[msgsB.length - 1] : null;
       const timeA = msgA?.timestamp || 0;
       const timeB = msgB?.timestamp || 0;
       return timeB - timeA;
@@ -223,7 +225,8 @@ export default function ChatsScreen() {
         {/* Conversations List */}
         <View style={styles.chatListSection}>
           {chatList.map((user, index) => {
-            const lastMsg = getLastMessage(user.id);
+            const msgs = messagesByUserId[user.id] || [];
+            const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
             let timeStr = '';
             if (lastMsg) {
               const d = new Date(lastMsg.timestamp);

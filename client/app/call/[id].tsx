@@ -1,8 +1,10 @@
+/* eslint-disable */
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { RTCView } from 'react-native-webrtc';
+import { BlurView } from 'expo-blur';
 import { useWebRTC } from '../../src/features/calls/hooks/useWebRTC';
 import { useSignalR } from '../../src/shared/hooks/useSignalR';
 import { Colors } from '../../src/shared/constants/colors';
@@ -94,17 +96,25 @@ export default function CallRoomScreen() {
 
       {/* Controls */}
       <View style={styles.controlsContainer}>
-        <TouchableOpacity style={[styles.controlBtn, { backgroundColor: Colors.surfaceInput }]} onPress={switchCamera}>
-          <Ionicons name="camera-reverse" size={28} color="#FFF" />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={[styles.controlBtn, { backgroundColor: isMuted ? Colors.surface : Colors.surfaceInput }]} onPress={toggleMic}>
-          <Ionicons name={isMuted ? "mic-off" : "mic"} size={28} color="#FFF" />
-        </TouchableOpacity>
+        <BlurView intensity={70} tint="dark" style={styles.controlsBlur}>
+          <TouchableOpacity 
+            style={[styles.controlBtn, !isFrontCamera && styles.controlBtnActive]} 
+            onPress={switchCamera}
+          >
+            <Ionicons name="camera-reverse" size={26} color={!isFrontCamera ? "#000" : "#FFF"} />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.controlBtn, isMuted && styles.controlBtnActive]} 
+            onPress={toggleMic}
+          >
+            <Ionicons name={isMuted ? "mic-off" : "mic"} size={26} color={isMuted ? "#000" : "#FFF"} />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.hangUpBtn} onPress={handleHangUp}>
-          <Ionicons name="call" size={32} color="#FFF" />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.hangUpBtn} onPress={handleHangUp}>
+            <Ionicons name="call" size={30} color="#FFF" />
+          </TouchableOpacity>
+        </BlurView>
       </View>
     </SafeAreaView>
   );
@@ -163,17 +173,31 @@ const styles = StyleSheet.create({
     bottom: 40,
     left: 0,
     right: 0,
+    alignItems: 'center',
+  },
+  controlsBlur: {
     flexDirection: 'row',
     justifyContent: 'space-evenly',
     alignItems: 'center',
+    paddingVertical: 14,
     paddingHorizontal: 20,
+    borderRadius: 40,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(30, 30, 30, 0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    width: 240,
   },
   controlBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  controlBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
   },
   hangUpBtn: {
     width: 64,

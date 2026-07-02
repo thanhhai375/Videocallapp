@@ -21,7 +21,7 @@ const peerConstraints = {
 };
 
 export function useWebRTC(targetConnectionId: string | null) {
-  const { sendOffer, sendAnswer, sendIce, onReceiveOffer, onReceiveAnswer, onReceiveIce } = useSignalR();
+  const { sendOffer, sendAnswer, sendIce, setOnReceiveAnswer, setOnReceiveIce } = useSignalR();
   
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -36,9 +36,10 @@ export function useWebRTC(targetConnectionId: string | null) {
       const stream = await mediaDevices.getUserMedia({
         audio: true,
         video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 640 },
+          height: { ideal: 480 },
           facingMode: isFrontCamera ? 'user' : 'environment',
+          frameRate: { ideal: 30 }
         },
       });
       setLocalStream(stream as MediaStream);
@@ -115,30 +116,26 @@ export function useWebRTC(targetConnectionId: string | null) {
 
   // Handle incoming signaling events
   useEffect(() => {
-    if (!pcRef.current) return;
-
-    if (onReceiveAnswer) {
+    setOnReceiveAnswer((sdp: string) => {
+      if (!pcRef.current) return;
       try {
-        const answerDescription = new RTCSessionDescription(JSON.parse(onReceiveAnswer as unknown as string));
+        const answerDescription = new RTCSessionDescription(JSON.parse(sdp));
         pcRef.current.setRemoteDescription(answerDescription);
       } catch (err) {
         console.error('Failed to set remote answer', err);
       }
-    }
-  }, [onReceiveAnswer]);
+    });
 
-  useEffect(() => {
-    if (!pcRef.current) return;
-
-    if (onReceiveIce) {
+    setOnReceiveIce((candidate: object) => {
+      if (!pcRef.current) return;
       try {
-        const candidate = new RTCIceCandidate(onReceiveIce);
-        pcRef.current.addIceCandidate(candidate as any);
+        const rtcCandidate = new RTCIceCandidate(candidate as any);
+        pcRef.current.addIceCandidate(rtcCandidate);
       } catch (err) {
         console.error('Failed to add ICE candidate', err);
       }
-    }
-  }, [onReceiveIce]);
+    });
+  }, [setOnReceiveAnswer, setOnReceiveIce]);
 
   // Controls
   const toggleMic = () => {

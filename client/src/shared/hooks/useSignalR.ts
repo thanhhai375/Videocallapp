@@ -1,10 +1,119 @@
 import * as signalR from "@microsoft/signalr";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { HUB_URL } from '@shared/constants/config';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { useUserStore } from '@features/contacts/store/userStore';
 import { useChatStore } from '@features/chat/store/chatStore';
 import { User, IncomingCall } from '@shared/types';
+
+// --- Singleton State ---
+let globalConnection: signalR.HubConnection | null = null;
+let isGlobalConnected = false;
+let initPromise: Promise<void> | null = null;
+
+// Subscribers for React re-renders
+const connectionSubscribers: Set<(connected: boolean) => void> = new Set();
+const incomingCallSubscribers: Set<(call: IncomingCall | null) => void> = new Set();
+
+let currentIncomingCall: IncomingCall | null = null;
+
+const setGlobalIncomingCall = (call: IncomingCall | null) => {
+  currentIncomingCall = call;
+  incomingCallSubscribers.forEach(sub => sub(call));
+};
+
+const notifyConnectionState = (state: boolean) => {
+  isGlobalConnected = state;
+  connectionSubscribers.forEach(sub => sub(state));
+};
+
+// WebRTC Callbacks
+let onReceiveOfferCb: ((callerId: string, sdp: string) => void) | null = null;
+let onReceiveAnswerCb: ((sdp: string) => void) | null = null;
+let onReceiveIceCb: ((candidate: object) => void) | null = null;
+let onCallAcceptedCb: ((calleeConnectionId: string) => void) | null = null;
+
+const initGlobalConnection = async () => {
+  if (globalConnection || initPromise) return initPromise;
+
+  const accessToken = useAuthStore.getState().accessToken;
+  if (!accessToken) return;
+
+  globalConnection = new signalR.HubConnectionBuilder()
+    .withUrl(`${HUB_URL}?access_token=${accessToken}`, {
+      skipNegotiation: true,
+      transport: signalR.HttpTransportType.WebSockets
+    })
+    .withAutomaticReconnect()
+    .configureLogging(signalR.LogLevel.Warning)
+    .build();
+
+  globalConnection.on("LoadFriends", (data: User[]) => {
+    useUserStore.getState().setUsers(data);
+  });
+
+  globalConnection.on("UserStatusChanged", (userId: string, isOnline: boolean, connectionId: string | null) => {
+    useUserStore.getState().updateUserStatus(userId, isOnline, connectionId);
+  });
+
+  globalConnection.on("ReceiveMessage", (senderId: string, content: string) => {
+    useChatStore.getState().addMessage(senderId, { senderId, content, timestamp: Date.now() });
+  });
+
+  globalConnection.on("ReceiveTypingStarted", (callerId: string) => {
+    useChatStore.getState().setTypingStatus(callerId, true);
+  });
+
+  globalConnection.on("ReceiveTypingEnded", (callerId: string) => {
+    useChatStore.getState().setTypingStatus(callerId, false);
+  });
+
+  globalConnection.on("ReceiveMessageSeen", (callerId: string, messageId: string) => {
+    useChatStore.getState().markMessageSeen(callerId, messageId);
+  });
+
+  globalConnection.on("IncomingCall", (callerConnectionId: string, callerName: string) => {
+    setGlobalIncomingCall({ callerConnectionId, callerName });
+  });
+
+  globalConnection.on("CallEnded", () => {
+    setGlobalIncomingCall(null);
+  });
+
+  globalConnection.on("CallRejected", () => {
+    setGlobalIncomingCall(null);
+  });
+  
+  globalConnection.on("CallAccepted", (calleeConnectionId: string) => {
+    if (onCallAcceptedCb) onCallAcceptedCb(calleeConnectionId);
+  });
+
+  globalConnection.on("ReceiveOffer", (callerId: string, sdp: string) => {
+    if (onReceiveOfferCb) onReceiveOfferCb(callerId, sdp);
+  });
+
+  globalConnection.on("ReceiveAnswer", (sdp: string) => {
+    if (onReceiveAnswerCb) onReceiveAnswerCb(sdp);
+  });
+
+  globalConnection.on("ReceiveIce", (candidate: object) => {
+    if (onReceiveIceCb) onReceiveIceCb(candidate);
+  });
+
+  initPromise = globalConnection.start().then(() => {
+    notifyConnectionState(true);
+    console.log("SignalR global connected!");
+  }).catch(async (err) => {
+    globalConnection = null;
+    initPromise = null;
+    const newToken = await useAuthStore.getState().refreshAccessToken();
+    if (newToken) {
+      // Logic retry có thể được thực hiện khi state đổi
+    }
+  });
+
+  return initPromise;
+};
 
 interface UseSignalRReturn {
   isConnected: boolean;
@@ -18,12 +127,10 @@ interface UseSignalRReturn {
   sendOffer: (targetId: string, sdp: string) => Promise<void>;
   sendAnswer: (targetId: string, sdp: string) => Promise<void>;
   sendIce: (targetId: string, candidate: object) => Promise<void>;
-  onReceiveOffer: ((callerId: string, sdp: string) => void) | null;
-  onReceiveAnswer: ((sdp: string) => void) | null;
-  onReceiveIce: ((candidate: object) => void) | null;
   setOnReceiveOffer: (cb: (callerId: string, sdp: string) => void) => void;
   setOnReceiveAnswer: (cb: (sdp: string) => void) => void;
   setOnReceiveIce: (cb: (candidate: object) => void) => void;
+  setOnCallAccepted: (cb: (calleeConnectionId: string) => void) => void;
   sendTypingStarted: (targetId: string) => Promise<void>;
   sendTypingEnded: (targetId: string) => Promise<void>;
   sendMarkMessageSeen: (targetId: string, messageId: string) => Promise<void>;
@@ -32,121 +139,29 @@ interface UseSignalRReturn {
 
 export function useSignalR(): UseSignalRReturn {
   const { accessToken } = useAuthStore();
-  const { setUsers, updateUserStatus } = useUserStore();
-  const { addMessage, setHistory, setTypingStatus, markMessageSeen } = useChatStore();
-  
-  const connectionRef = useRef<signalR.HubConnection | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
-
-  const onReceiveOfferRef = useRef<((callerId: string, sdp: string) => void) | null>(null);
-  const onReceiveAnswerRef = useRef<((sdp: string) => void) | null>(null);
-  const onReceiveIceRef = useRef<((candidate: object) => void) | null>(null);
+  const [isConnected, setIsConnected] = useState(isGlobalConnected);
+  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(currentIncomingCall);
 
   useEffect(() => {
-    if (!accessToken) return;
+    if (accessToken) {
+      initGlobalConnection();
+    }
 
-    const connection = new signalR.HubConnectionBuilder()
-      .withUrl(`${HUB_URL}?access_token=${accessToken}`, {
-        skipNegotiation: true,
-        transport: signalR.HttpTransportType.WebSockets
-      })
-      .withAutomaticReconnect()
-      .configureLogging(signalR.LogLevel.Warning)
-      .build();
+    const onConnChange = (state: boolean) => setIsConnected(state);
+    const onCallChange = (call: IncomingCall | null) => setIncomingCall(call);
 
-    // ─── Handle Events ────────────────────────────────────────────────────────
-    
-    connection.on("LoadFriends", (data: User[]) => {
-      setUsers(data);
-    });
-
-    connection.on("UserStatusChanged", (userId: string, isOnline: boolean, connectionId: string | null) => {
-      updateUserStatus(userId, isOnline, connectionId);
-    });
-
-    connection.on("ReceiveMessage", (senderId: string, content: string) => {
-      // Nhận tin nhắn từ người khác
-      addMessage(senderId, { senderId, content, timestamp: Date.now() });
-    });
-
-    connection.on("LoadChatHistory", (history: any[]) => {
-      // History handled via custom callback
-    });
-
-    connection.on("ReceiveTypingStarted", (callerId: string) => {
-      setTypingStatus(callerId, true);
-    });
-
-    connection.on("ReceiveTypingEnded", (callerId: string) => {
-      setTypingStatus(callerId, false);
-    });
-
-    connection.on("ReceiveMessageSeen", (callerId: string, messageId: string) => {
-      markMessageSeen(callerId, messageId);
-    });
-
-    connection.on("IncomingCall", (callerConnectionId: string, callerName: string) => {
-      setIncomingCall({ callerConnectionId, callerName });
-    });
-
-    connection.on("CallEnded", () => {
-      setIncomingCall(null);
-    });
-
-    connection.on("CallRejected", () => {
-      setIncomingCall(null);
-    });
-
-    // ─── WebRTC Events ────────────────────────────────────────────────────────
-
-    connection.on("ReceiveOffer", (callerId: string, sdp: string) => {
-      onReceiveOfferRef.current?.(callerId, sdp);
-    });
-
-    connection.on("ReceiveAnswer", (sdp: string) => {
-      onReceiveAnswerRef.current?.(sdp);
-    });
-
-    connection.on("ReceiveIce", (candidate: object) => {
-      onReceiveIceRef.current?.(candidate);
-    });
-
-    // ─── Start Connection ─────────────────────────────────────────────────────
-
-    const startConnection = async () => {
-      try {
-        await connection.start();
-        setIsConnected(true);
-        console.log("SignalR connected!");
-      } catch (err: any) {
-        // Try to refresh token and reconnect once
-        const newToken = await useAuthStore.getState().refreshAccessToken();
-        if (newToken) {
-          try {
-            // Must rebuild connection with new token (SignalR doesn't support mid-life token swap)
-            await connection.stop();
-          } catch {}
-          // Will re-trigger via useEffect when accessToken changes in store
-        } else {
-          console.warn("SignalR: could not connect, token may be expired. Please re-login.");
-        }
-      }
-    };
-
-    startConnection();
-
-    connectionRef.current = connection;
+    connectionSubscribers.add(onConnChange);
+    incomingCallSubscribers.add(onCallChange);
 
     return () => {
-      connection.stop();
-      setIsConnected(false);
+      connectionSubscribers.delete(onConnChange);
+      incomingCallSubscribers.delete(onCallChange);
     };
-  }, [accessToken, setUsers, updateUserStatus, addMessage]);
+  }, [accessToken]);
 
   const invoke = useCallback(async (method: string, ...args: unknown[]) => {
-    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
-      await connectionRef.current.invoke(method, ...args);
+    if (globalConnection?.state === signalR.HubConnectionState.Connected) {
+      await globalConnection.invoke(method, ...args);
     }
   }, []);
 
@@ -154,49 +169,43 @@ export function useSignalR(): UseSignalRReturn {
     isConnected,
     incomingCall,
     sendMessage: async (targetId, content, messageType = "Text") => {
-      // Khi mình gửi, server sẽ tự echo lại bằng ReceiveMessage
-      // Nhưng để app nhanh nhẹn, ta có thể addMessage ngay lập tức (optimistic UI), 
-      // Tuy nhiên server của bạn đã có: await Clients.Caller.SendAsync("ReceiveMessage", sender.Id, content);
-      // => Tức là server sẽ gọi lại ReceiveMessage cho TẤT CẢ các bên, bao gồm cả người gửi!
-      // Nên ta KHÔNG cần gọi addMessage ở đây. (Vì sẽ bị duplicate).
       await invoke("SendMessage", targetId, content, messageType);
     },
     getChatHistory: async (targetId) => {
-      // Tùy chỉnh LoadChatHistory để pass targetId
-      // Server trả về mảng các objects, ta gắn cứng listener tạm thời ở đây
       const onHistory = (history: any[]) => {
-         setHistory(targetId, history);
-         connectionRef.current?.off("LoadChatHistory", onHistory);
+         useChatStore.getState().setHistory(targetId, history);
+         globalConnection?.off("LoadChatHistory", onHistory);
       };
-      connectionRef.current?.on("LoadChatHistory", onHistory);
-      
+      globalConnection?.on("LoadChatHistory", onHistory);
       await invoke("GetChatHistory", targetId);
     },
     callFriend: (targetConnectionId, callType = "Video") => invoke("CallFriend", targetConnectionId, callType),
     acceptCall: (callerConnectionId) => {
-      setIncomingCall(null);
+      setGlobalIncomingCall(null);
       return invoke("AcceptCall", callerConnectionId);
     },
     rejectCall: (callerConnectionId) => {
-      setIncomingCall(null);
+      setGlobalIncomingCall(null);
       return invoke("RejectCall", callerConnectionId);
     },
     endCall: (targetConnectionId) => invoke("EndCall", targetConnectionId),
     sendOffer: (targetId, sdp) => invoke("SendOffer", targetId, sdp),
     sendAnswer: (targetId, sdp) => invoke("SendAnswer", targetId, sdp),
     sendIce: (targetId, candidate) => invoke("SendIce", targetId, candidate),
-    onReceiveOffer: onReceiveOfferRef.current,
-    onReceiveAnswer: onReceiveAnswerRef.current,
-    onReceiveIce: onReceiveIceRef.current,
-    setOnReceiveOffer: (cb) => { onReceiveOfferRef.current = cb; },
-    setOnReceiveAnswer: (cb) => { onReceiveAnswerRef.current = cb; },
-    setOnReceiveIce: (cb) => { onReceiveIceRef.current = cb; },
+    setOnReceiveOffer: (cb) => { onReceiveOfferCb = cb; },
+    setOnReceiveAnswer: (cb) => { onReceiveAnswerCb = cb; },
+    setOnReceiveIce: (cb) => { onReceiveIceCb = cb; },
+    setOnCallAccepted: (cb) => { onCallAcceptedCb = cb; },
     sendTypingStarted: (targetId) => invoke("TypingStarted", targetId),
     sendTypingEnded: (targetId) => invoke("TypingEnded", targetId),
     sendMarkMessageSeen: (targetId, messageId) => invoke("MarkMessageSeen", targetId, messageId),
     disconnect: async () => {
-      await connectionRef.current?.stop();
-      setIsConnected(false);
+      if (globalConnection) {
+        await globalConnection.stop();
+        globalConnection = null;
+        initPromise = null;
+        notifyConnectionState(false);
+      }
     },
   };
 }

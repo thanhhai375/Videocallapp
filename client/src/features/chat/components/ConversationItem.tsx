@@ -13,7 +13,7 @@ interface ConversationItemProps {
   onPress: () => void;
 }
 
-export function ConversationItem({
+export const ConversationItem = React.memo(function ConversationItem({
   name,
   lastMessage,
   time,
@@ -55,7 +55,7 @@ export function ConversationItem({
       )}
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

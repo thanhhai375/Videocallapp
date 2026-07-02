@@ -257,7 +257,7 @@ export default function StoriesScreen() {
 
       <FlatList
         data={gridData}
-        keyExtractor={(item, index) => item.isCreate ? 'create' : item.user.id}
+        keyExtractor={(item, index) => 'isCreate' in item ? 'create' : (item as StoryGroup).user.id}
         numColumns={2}
         renderItem={renderGridItem}
         contentContainerStyle={styles.gridContainer}
@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   storyCardOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.2)',
   },
   storyCardAvatarRing: {
