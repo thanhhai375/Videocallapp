@@ -176,12 +176,13 @@ export default function StoriesScreen() {
         insetsTop={insets.top}
       />
 
-      {/* Story Viewer */}
+      {/* Story Viewer Modal */}
       <StoryViewerModal
-        story={viewerStory}
-        user={viewerUser}
-        onClose={() => setViewerStory(null)}
-        onDeleteSuccess={() => { setViewerStory(null); fetchStories(); }}
+        visible={!!viewerStory}
+        group={groups.find(g => g.user.id === viewerUser?.id) || null}
+        initialIndex={groups.find(g => g.user.id === viewerUser?.id)?.stories.findIndex(s => s.id === viewerStory?.id) || 0}
+        onClose={() => { setViewerStory(null); setViewerUser(null); }}
+        onDeleteSuccess={fetchStories}
         accessToken={accessToken}
         insetsTop={insets.top}
       />
