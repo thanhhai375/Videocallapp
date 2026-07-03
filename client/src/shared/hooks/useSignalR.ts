@@ -40,10 +40,7 @@ const initGlobalConnection = async () => {
   if (!accessToken) return;
 
   globalConnection = new signalR.HubConnectionBuilder()
-    .withUrl(`${HUB_URL}?access_token=${accessToken}`, {
-      skipNegotiation: true,
-      transport: signalR.HttpTransportType.WebSockets
-    })
+    .withUrl(`${HUB_URL}?access_token=${accessToken}`)
     .withAutomaticReconnect()
     .configureLogging(signalR.LogLevel.Warning)
     .build();

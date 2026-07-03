@@ -22,7 +22,7 @@ export default function CallRoomScreen() {
     sdp?: string;
   }>();
 
-  const { endCall, onCallAccepted, setOnCallAccepted } = useSignalR();
+  const { endCall, setOnCallAccepted } = useSignalR();
   const {
     localStream,
     remoteStream,

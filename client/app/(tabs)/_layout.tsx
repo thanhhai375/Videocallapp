@@ -5,6 +5,7 @@ import { useTheme } from '@shared/constants/colors';
 
 export default function TabsLayout() {
   const Colors = useTheme();
+  
   return (
     <Tabs
       screenOptions={{

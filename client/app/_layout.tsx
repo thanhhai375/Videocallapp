@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { Stack, router } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, StatusBar } from "react-native";
 import * as SplashScreen from 'expo-splash-screen';
 
 import { useAuthStore } from "@features/auth/store/authStore";
 import { useThemeStore } from "@shared/store/themeStore";
 import { useSignalR } from "@shared/hooks/useSignalR";
 import { IncomingCallModal } from "@features/calls/components/IncomingCallModal";
-import { Colors } from "@shared/constants/colors";
+import { useTheme } from "@shared/constants/colors";
 
 // Ngăn Splash của hệ thống tự ẩn
 SplashScreen.preventAutoHideAsync();
@@ -17,6 +16,8 @@ export default function RootLayout() {
   const { loadAuth } = useAuthStore();
   const { loadTheme, isDarkMode } = useThemeStore();
   const [appIsReady, setAppIsReady] = useState(false);
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
 
   const { incomingCall, acceptCall, rejectCall } = useSignalR();
 
@@ -30,11 +31,6 @@ export default function RootLayout() {
         console.warn(e);
       } finally {
         setAppIsReady(true);
-        if (useAuthStore.getState().isLoggedIn) {
-          router.replace("/(tabs)/chats");
-        } else {
-          router.replace("/(auth)/login");
-        }
       }
     }
 
@@ -66,7 +62,7 @@ export default function RootLayout() {
   return (
     // rootContainer đảm bảo nền luôn tối
     <View style={styles.rootContainer}>
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
+      <StatusBar barStyle={isDarkMode ? "light-content" : "dark-content"} />
 
       {appIsReady && (
         <Stack
@@ -99,7 +95,7 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   rootContainer: {
     flex: 1,
     backgroundColor: Colors.bg,

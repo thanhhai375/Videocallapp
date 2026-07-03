@@ -19,7 +19,7 @@ import {
   requestRecordingPermissionsAsync,
 } from "expo-audio";
 import * as FileSystem from "expo-file-system";
-import { Colors } from "@shared/constants/colors";
+import { useTheme } from "@shared/constants/colors";
 import { API_URL } from "@shared/constants/config";
 import { useAuthStore } from "@features/auth/store/authStore";
 
@@ -34,6 +34,8 @@ export function ChatInput({
   onTypingStart,
   onTypingEnd,
 }: ChatInputProps) {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const [text, setText] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [isPreparingRecord, setIsPreparingRecord] = useState(false);
@@ -317,7 +319,7 @@ export function ChatInput({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "flex-end",

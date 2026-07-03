@@ -12,10 +12,12 @@ import { ChatInput } from '@features/chat/components/ChatInput';
 import { MessageBubble } from '@features/chat/components/MessageBubble';
 import { Avatar } from '@shared/components/Avatar';
 import { API_URL } from '@shared/constants/config';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ChatRoomScreen() {
   const Colors = useTheme();
   const styles = getStyles(Colors);
+  const insets = useSafeAreaInsets();
   const { id, name, connectionId } = useLocalSearchParams<{ id: string, name: string, connectionId: string }>();
   const { userName, accessToken } = useAuthStore();
   const { getUserById } = useUserStore();
@@ -132,7 +134,11 @@ export default function ChatRoomScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : insets.bottom}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -167,11 +173,7 @@ export default function ChatRoomScreen() {
         </View>
       </View>
 
-      <KeyboardAvoidingView 
-        style={styles.content} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
-      >
+      <View style={styles.content}>
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -238,8 +240,8 @@ export default function ChatRoomScreen() {
           onTypingStart={() => { if (id) sendTypingStarted(id); }}
           onTypingEnd={() => { if (id) sendTypingEnded(id); }}
         />
-      </KeyboardAvoidingView>
-    </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 

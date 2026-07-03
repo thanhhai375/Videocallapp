@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 
 interface AvatarProps {
@@ -10,6 +10,8 @@ interface AvatarProps {
 }
 
 export function Avatar({ name, isOnline = false, size = 'md' }: AvatarProps) {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const avatarSize = Layout.avatar[size];
   const initial = name ? name.charAt(0).toUpperCase() : '?';
 
@@ -42,7 +44,7 @@ export function Avatar({ name, isOnline = false, size = 'md' }: AvatarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: {
     position: 'relative',
   },
@@ -59,6 +61,6 @@ const styles = StyleSheet.create({
   onlineBadge: {
     position: 'absolute',
     backgroundColor: Colors.online,
-    borderColor: Colors.bg, // To create the cutout effect
+    borderColor: Colors.bg,
   },
 });

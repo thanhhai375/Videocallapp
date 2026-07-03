@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { Avatar } from '@shared/components/Avatar';
 
@@ -21,23 +21,25 @@ export const ConversationItem = React.memo(function ConversationItem({
   unreadCount = 0,
   onPress,
 }: ConversationItemProps) {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const isUnread = unreadCount > 0;
 
   return (
-    <TouchableOpacity 
-      style={styles.container} 
+    <TouchableOpacity
+      style={styles.container}
       onPress={onPress}
       activeOpacity={0.7}
     >
       <Avatar name={name} isOnline={isOnline} size="lg" />
-      
+
       <View style={styles.content}>
         <Text style={[styles.name, isUnread && styles.nameUnread]} numberOfLines={1}>
           {name}
         </Text>
         <View style={styles.bottomRow}>
-          <Text 
-            style={[styles.lastMessage, isUnread && styles.messageUnread]} 
+          <Text
+            style={[styles.lastMessage, isUnread && styles.messageUnread]}
             numberOfLines={1}
           >
             {lastMessage || 'Bắt đầu cuộc trò chuyện'}
@@ -57,7 +59,7 @@ export const ConversationItem = React.memo(function ConversationItem({
   );
 });
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -77,7 +79,7 @@ const styles = StyleSheet.create({
   },
   nameUnread: {
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: Colors.text,
   },
   bottomRow: {
     flexDirection: 'row',
@@ -89,7 +91,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   messageUnread: {
-    color: '#FFFFFF',
+    color: Colors.text,
     fontWeight: 'bold',
   },
   time: {
@@ -97,11 +99,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   timeUnread: {
-    color: '#FFFFFF',
+    color: Colors.text,
     fontWeight: 'bold',
   },
   unreadBadge: {
-    backgroundColor: '#0084FF',
+    backgroundColor: Colors.primary,
     borderRadius: 8,
     width: 12,
     height: 12,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, StyleProp, ViewStyle, Text } from 'react-native';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 
 interface IconButtonProps {
   icon: string; // Using string emoji as placeholder for actual icons (e.g. vector icons)
@@ -16,9 +16,11 @@ export function IconButton({
   onPress, 
   style, 
   size = 40,
-  backgroundColor = Colors.surfaceInput,
-  color = Colors.text,
+  backgroundColor,
+  color,
 }: IconButtonProps) {
+  const Colors = useTheme();
+  
   return (
     <TouchableOpacity
       style={[
@@ -27,14 +29,14 @@ export function IconButton({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor,
+          backgroundColor: backgroundColor || Colors.surfaceInput,
         },
         style,
       ]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <Text style={{ fontSize: size * 0.45, color }}>{icon}</Text>
+      <Text style={{ fontSize: size * 0.45, color: color || Colors.text }}>{icon}</Text>
     </TouchableOpacity>
   );
 }

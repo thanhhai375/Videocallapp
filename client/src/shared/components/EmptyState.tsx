@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Colors } from '@shared/constants/colors';
+import { useTheme } from '@shared/constants/colors';
 
 interface EmptyStateProps {
   title: string;
@@ -9,6 +9,9 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ title, subtitle, icon = '💬' }: EmptyStateProps) {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
+
   return (
     <View style={styles.container}>
       <Text style={styles.icon}>{icon}</Text>
@@ -18,7 +21,7 @@ export function EmptyState({ title, subtitle, icon = '💬' }: EmptyStateProps) 
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',

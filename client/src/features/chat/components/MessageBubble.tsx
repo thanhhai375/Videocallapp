@@ -3,7 +3,7 @@ import React from "react";
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import { Colors } from "@shared/constants/colors";
+import { useTheme } from "@shared/constants/colors";
 import { Avatar } from "@shared/components/Avatar";
 import { Layout } from "@shared/constants/layout";
 
@@ -28,6 +28,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   isFirstInGroup = true,
   isLastInGroup = true,
 }: MessageBubbleProps) {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   // Auto-detect type
   const isImage =
     messageType === "Image" ||
@@ -99,6 +101,8 @@ export const MessageBubble = React.memo(function MessageBubble({
 });
 
 function AudioBubbleContent({ uri, isMine, isFirstInGroup = true, isLastInGroup = true }: { uri: string; isMine: boolean; isFirstInGroup?: boolean; isLastInGroup?: boolean }) {
+  const Colors = useTheme();
+  const styles = getStyles(Colors);
   const player = useAudioPlayer(uri);
   const status = useAudioPlayerStatus(player);
 
@@ -171,7 +175,7 @@ function AudioBubbleContent({ uri, isMine, isFirstInGroup = true, isLastInGroup 
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (Colors: any) => StyleSheet.create({
   container: {
     flexDirection: "row",
     marginBottom: Layout.spacing.sm,
@@ -187,13 +191,13 @@ const styles = StyleSheet.create({
     paddingVertical: Layout.spacing.sm,
     borderRadius: 18,
   },
-  mineBubble: { backgroundColor: Colors.primary },
+  mineBubble: { backgroundColor: Colors.myBubble },
   theirsBubble: {
-    backgroundColor: Colors.surfaceInput,
+    backgroundColor: Colors.theirBubble,
   },
   text: { fontSize: 16, lineHeight: 22 },
-  mineText: { color: "#FFF" },
-  theirsText: { color: Colors.text },
+  mineText: { color: Colors.myBubbleText },
+  theirsText: { color: Colors.theirBubbleText },
   seenContainer: { alignSelf: "flex-end", marginTop: 4 },
   imageBubble: {
     width: 220,

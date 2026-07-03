@@ -6,7 +6,7 @@ import { useState } from "react";
 import { router } from "expo-router";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '@features/auth/store/authStore';
-import { Colors } from '@shared/constants/colors';
+import { DarkTheme } from '@shared/constants/colors';
 import { Layout } from '@shared/constants/layout';
 import { API_URL } from '@shared/constants/config';
 
@@ -15,6 +15,9 @@ type Tab = 'login' | 'register';
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
+  const Colors = DarkTheme;
+  const styles = getStyles(Colors);
+  
   const [tab, setTab] = useState<Tab>('login');
   const [phoneNumber, setPhoneNumber] = useState("");
   const [username, setUsername] = useState("");
@@ -127,7 +130,7 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.inputField}
                     placeholder="Số điện thoại"
-                    placeholderTextColor="rgba(0, 163, 255, 0.4)"
+                    placeholderTextColor={Colors.textMuted}
                     value={phoneNumber}
                     onChangeText={setPhoneNumber}
                     keyboardType="phone-pad"
@@ -135,25 +138,25 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.inputField}
                     placeholder="Mật khẩu"
-                    placeholderTextColor="rgba(0, 163, 255, 0.4)"
+                    placeholderTextColor={Colors.textMuted}
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry
                   />
                   <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.8}>
-                    <LinearGradient colors={['#00A3FF', '#0066FF']} style={styles.loginButton}>
+                    <LinearGradient colors={['#0084FF', '#0066FF']} style={styles.loginButton}>
                       {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.loginButtonText}>Đăng nhập</Text>}
                     </LinearGradient>
                   </TouchableOpacity>
                 </>
               ) : (
                 <>
-                  <TextInput style={styles.inputField} placeholder="Tên hiển thị" placeholderTextColor="rgba(0, 163, 255, 0.4)" value={username} onChangeText={setUsername} />
-                  <TextInput style={styles.inputField} placeholder="Số điện thoại" placeholderTextColor="rgba(0, 163, 255, 0.4)" value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" />
-                  <TextInput style={styles.inputField} placeholder="Mật khẩu" placeholderTextColor="rgba(0, 163, 255, 0.4)" value={password} onChangeText={setPassword} secureTextEntry />
-                  <TextInput style={styles.inputField} placeholder="Xác nhận mật khẩu" placeholderTextColor="rgba(0, 163, 255, 0.4)" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+                  <TextInput style={styles.inputField} placeholder="Tên hiển thị" placeholderTextColor={Colors.textMuted} value={username} onChangeText={setUsername} />
+                  <TextInput style={styles.inputField} placeholder="Số điện thoại" placeholderTextColor={Colors.textMuted} value={phoneNumber} onChangeText={setPhoneNumber} keyboardType="phone-pad" />
+                  <TextInput style={styles.inputField} placeholder="Mật khẩu" placeholderTextColor={Colors.textMuted} value={password} onChangeText={setPassword} secureTextEntry />
+                  <TextInput style={styles.inputField} placeholder="Xác nhận mật khẩu" placeholderTextColor={Colors.textMuted} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
                   <TouchableOpacity onPress={handleRegister} disabled={loading} activeOpacity={0.8}>
-                    <LinearGradient colors={['#00A3FF', '#0066FF']} style={styles.loginButton}>
+                    <LinearGradient colors={['#0084FF', '#0066FF']} style={styles.loginButton}>
                       {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.loginButtonText}>Tạo tài khoản</Text>}
                     </LinearGradient>
                   </TouchableOpacity>
@@ -167,63 +170,62 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  // Sử dụng màu ĐEN TUYỀN để hòa nhập tuyệt đối với ảnh nền của bạn
-  container: { flex: 1, backgroundColor: '#000000' },
+const getStyles = (Colors: any) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.bg },
   scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 30, paddingBottom: 100 },
 
-  // Hình vệt sáng ép sát xuống đáy
   bottomWaveImage: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     width: width,
-    height: height * 0.4, // Cao 40% màn hình
-    zIndex: 0, // Nằm trên nền đen nhưng dưới Form
+    height: height * 0.4,
+    zIndex: 0,
+    opacity: Colors.bg === '#000000' ? 0.6 : 0.2, // Adjust opacity for light/dark
   },
 
   headerImageContainer: { alignItems: 'center', marginBottom: 10, width: '100%', height: 220 },
   headerImage: { width: '100%', height: '100%' },
 
   authCard: {
-    backgroundColor: 'rgba(0, 15, 40, 0.8)', // Trong suốt hơn để thấy sóng phía sau
+    backgroundColor: Colors.surfaceElevated,
     borderRadius: 30,
     padding: 25,
     borderWidth: 1,
-    borderColor: 'rgba(0, 163, 255, 0.2)',
+    borderColor: Colors.divider,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.5,
-    shadowRadius: 30,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: Colors.bg === '#000000' ? 0.5 : 0.1,
+    shadowRadius: 20,
+    elevation: 5,
   },
   tabsContainer: { flexDirection: 'row', marginBottom: 25 },
   tabButton: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 15 },
-  tabActive: { backgroundColor: '#0084FF' },
-  tabLabel: { color: 'rgba(255,255,255,0.5)', fontWeight: 'bold', fontSize: 16 },
-  tabLabelActive: { color: '#FFF' },
+  tabActive: { backgroundColor: Colors.primaryDim },
+  tabLabel: { color: Colors.textSecondary, fontWeight: 'bold', fontSize: 16 },
+  tabLabelActive: { color: Colors.primary },
 
   formContent: { width: '100%' },
   inputField: {
-    backgroundColor: 'rgba(0, 30, 60, 0.5)',
+    backgroundColor: Colors.surfaceInput,
     borderRadius: 15,
     padding: 18,
-    color: '#FFF',
+    color: Colors.text,
     fontSize: 16,
     marginBottom: 15,
     borderWidth: 1,
-    borderColor: 'rgba(0, 163, 255, 0.1)'
+    borderColor: Colors.divider
   },
   loginButton: {
     borderRadius: 15,
     padding: 18,
     alignItems: 'center',
     marginTop: 10,
-    shadowColor: '#00A3FF',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
+    shadowColor: '#0084FF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   loginButtonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
 });
