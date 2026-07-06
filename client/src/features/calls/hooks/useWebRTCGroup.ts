@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { RTCPeerConnection, RTCSessionDescription, RTCIceCandidate, MediaStream, mediaDevices } from 'react-native-webrtc';
+import { setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 import { useSignalR } from '@shared/hooks/useSignalR';
 
 // WebRTC STUN/TURN Servers
@@ -69,7 +70,7 @@ export function useWebRTCGroup(groupId: string) {
     // @ts-ignore
     pc.onicecandidate = (event: any) => {
       if (event.candidate) {
-        sendGroupIce(targetConnectionId, event.candidate, groupId);
+        sendGroupIce(targetConnectionId, event.candidate.toJSON(), groupId);
       }
     };
 
@@ -129,6 +130,19 @@ export function useWebRTCGroup(groupId: string) {
         audio: true,
         video: !audioOnly,
       });
+
+      // Force speakerphone using expo-audio
+      try {
+        await setAudioModeAsync({
+          shouldRouteThroughEarpiece: false,
+          playsInSilentModeIOS: true,
+          allowsRecordingIOS: true,
+        });
+        await setIsAudioActiveAsync(true);
+      } catch (e) {
+        console.warn('Could not set audio mode', e);
+      }
+
       setLocalStream(stream);
       localStreamRef.current = stream;
       return stream;

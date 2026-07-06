@@ -10,6 +10,8 @@ interface ConversationItemProps {
   time?: string;
   isOnline?: boolean;
   unreadCount?: number;
+  isActiveGroupCall?: boolean;
+  onJoinGroupCall?: () => void;
   onPress: () => void;
 }
 
@@ -19,6 +21,8 @@ export const ConversationItem = React.memo(function ConversationItem({
   time,
   isOnline,
   unreadCount = 0,
+  isActiveGroupCall = false,
+  onJoinGroupCall,
   onPress,
 }: ConversationItemProps) {
   const Colors = useTheme();
@@ -52,9 +56,13 @@ export const ConversationItem = React.memo(function ConversationItem({
         </View>
       </View>
 
-      {isUnread && (
+      {isActiveGroupCall ? (
+        <TouchableOpacity style={styles.joinButton} onPress={onJoinGroupCall}>
+          <Text style={styles.joinButtonText}>Tham gia</Text>
+        </TouchableOpacity>
+      ) : isUnread ? (
         <View style={styles.unreadBadge} />
-      )}
+      ) : null}
     </TouchableOpacity>
   );
 });
@@ -99,14 +107,26 @@ const getStyles = (Colors: any) => StyleSheet.create({
     color: Colors.textSecondary,
   },
   timeUnread: {
-    color: Colors.text,
+    color: Colors.primary,
     fontWeight: 'bold',
   },
   unreadBadge: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: Colors.primary,
-    borderRadius: 8,
-    width: 12,
-    height: 12,
     marginLeft: Layout.spacing.md,
   },
+  joinButton: {
+    backgroundColor: '#34C759',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginLeft: 8,
+  },
+  joinButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  }
 });

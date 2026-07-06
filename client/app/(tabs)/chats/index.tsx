@@ -18,7 +18,8 @@ export default function ChatsScreen() {
   const styles = getStyles(Colors);
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
-  const { isConnected } = useSignalR();
+  const { isConnected, getChatHistory, checkActiveGroupCall, setOnGroupCallStarted, setOnGroupCallEnded } = useSignalR();
+  const [activeGroupCalls, setActiveGroupCalls] = useState<Set<string>>(new Set());
   const { users, getUserById } = useUserStore();
   const { getLastMessage } = useChatStore();
   const messagesState = useChatStore(state => state.messagesByUserId); // Trigger reactive updates on message events
@@ -49,6 +50,37 @@ export default function ChatsScreen() {
       setRefreshing(false);
     }
   };
+
+  // Track active group calls
+  useEffect(() => {
+    setOnGroupCallStarted((groupId) => {
+      setActiveGroupCalls(prev => new Set(prev).add(groupId));
+    });
+
+    setOnGroupCallEnded((groupId) => {
+      setActiveGroupCalls(prev => {
+        const next = new Set(prev);
+        next.delete(groupId);
+        return next;
+      });
+    });
+  }, [setOnGroupCallStarted, setOnGroupCallEnded]);
+
+  useEffect(() => {
+    const checkCalls = async () => {
+      const newSet = new Set<string>();
+      for (const conv of conversations) {
+        if (conv.isGroup) {
+          const isActive = await checkActiveGroupCall(conv.id);
+          if (isActive) newSet.add(conv.id);
+        }
+      }
+      setActiveGroupCalls(newSet);
+    };
+    if (conversations.length > 0) {
+      checkCalls();
+    }
+  }, [conversations, checkActiveGroupCall]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -287,7 +319,14 @@ export default function ChatsScreen() {
                 lastMessage={content}
                 time={timeStr}
                 unreadCount={c.unreadCount}
-                onPress={() => router.push(`/chat/${c.userId}?name=${c.username}&connectionId=${c.connectionId || ''}&isGroup=${c.isGroup ? 'true' : 'false'}` as any)}
+                isActiveGroupCall={c.isGroup && activeGroupCalls.has(c.userId)}
+                onJoinGroupCall={() => {
+                  router.push(`/call/group?groupId=${c.userId}&name=${encodeURIComponent(c.username)}&isInitiator=false`);
+                }}
+                onPress={() => {
+                  getChatHistory(c.userId);
+                  router.push(`/chat/${c.userId}?name=${c.username}&connectionId=${c.connectionId || ''}&isGroup=${c.isGroup ? 'true' : 'false'}` as any);
+                }}
               />
             );
           })}
