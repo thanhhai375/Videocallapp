@@ -28,6 +28,7 @@ export function useWebRTCGroup(groupId: string) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const [memberNames, setMemberNames] = useState<Map<string, string>>(new Map());
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
   
   // Mapping of connectionId -> RTCPeerConnection
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -133,7 +134,12 @@ export function useWebRTCGroup(groupId: string) {
     try {
       const stream = await mediaDevices.getUserMedia({
         audio: true,
-        video: !audioOnly,
+        video: audioOnly ? false : {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: isFrontCamera ? 'user' : 'environment',
+          frameRate: { ideal: 30 }
+        },
       });
 
       setLocalStream(stream);
@@ -189,9 +195,20 @@ export function useWebRTCGroup(groupId: string) {
 
   const toggleCamera = () => {
     if (localStream) {
-      localStream.getVideoTracks().forEach(track => {
+      localStream.getVideoTracks().forEach((track) => {
         track.enabled = !track.enabled;
       });
+    }
+  };
+
+  const switchCamera = () => {
+    if (localStream) {
+      localStream.getVideoTracks().forEach((track: any) => {
+        if (track._switchCamera) {
+          track._switchCamera();
+        }
+      });
+      setIsFrontCamera(!isFrontCamera);
     }
   };
 
@@ -202,6 +219,8 @@ export function useWebRTCGroup(groupId: string) {
     endCall,
     toggleMic,
     toggleCamera,
+    switchCamera,
+    isFrontCamera,
     memberNames,
   };
 }

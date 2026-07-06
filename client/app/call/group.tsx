@@ -23,6 +23,7 @@ export default function GroupCallScreen() {
     endCall,
     toggleMic,
     toggleCamera,
+    switchCamera,
     memberNames,
   } = useWebRTCGroup(groupId || '');
 
@@ -95,13 +96,13 @@ export default function GroupCallScreen() {
       <View style={styles.gridContainer}>
         {localStream && (
           <View style={videoStyle}>
-            <RTCView streamURL={localStream.toURL()} style={styles.video} objectFit="cover" />
+            <RTCView streamURL={localStream.toURL()} style={styles.video} objectFit="contain" />
             <Text style={styles.videoLabel}>Bạn</Text>
           </View>
         )}
         {streams.map(([connId, stream]) => (
           <View key={connId} style={videoStyle}>
-            <RTCView streamURL={stream.toURL()} style={styles.video} objectFit="cover" />
+            <RTCView streamURL={stream.toURL()} style={styles.video} objectFit="contain" />
             <Text style={styles.videoLabel}>{memberNames.get(connId) || 'Thành viên'}</Text>
           </View>
         ))}
@@ -124,6 +125,13 @@ export default function GroupCallScreen() {
             <Ionicons name={micEnabled ? "mic" : "mic-off"} size={28} color={micEnabled ? "#fff" : "#000"} />
           </TouchableOpacity>
           
+          <TouchableOpacity 
+            style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]} 
+            onPress={switchCamera}
+          >
+            <Ionicons name="camera-reverse" size={28} color="#fff" />
+          </TouchableOpacity>
+
           <TouchableOpacity style={[styles.iconButton, { backgroundColor: '#FF3B30' }]} onPress={onEndCall}>
             <Ionicons name="call" size={28} color="#FFF" style={{ transform: [{ rotate: '135deg' }] }} />
           </TouchableOpacity>
