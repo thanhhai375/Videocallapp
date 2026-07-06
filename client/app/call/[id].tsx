@@ -1,5 +1,5 @@
 /* eslint-disable */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +22,7 @@ export default function CallRoomScreen() {
     sdp?: string;
   }>();
 
-  const { endCall, setOnCallAccepted, setOnCallEnded, setOnCallRejected } = useSignalR();
+  const { endCall, setOnCallAccepted, setOnCallEnded, setOnCallRejected, sendMessage } = useSignalR();
   const {
     localStream,
     remoteStream,
@@ -37,6 +37,31 @@ export default function CallRoomScreen() {
 
   const [callStatus, setCallStatus] = useState<string>('Connecting...');
 
+  const callStartTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (callStatus === 'Connected') {
+      callStartTimeRef.current = Date.now();
+    }
+  }, [callStatus]);
+
+  const sendCallLog = (isMissed: boolean = false) => {
+    if (isCaller === 'true' && id && id !== 'incoming' && id !== 'group') {
+      let msg = "Cuộc gọi thoại";
+      if (isMissed) {
+        msg = "Cuộc gọi nhỡ";
+      } else if (callStartTimeRef.current) {
+        const durationSec = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+        const m = Math.floor(durationSec / 60);
+        const s = durationSec % 60;
+        msg = `Cuộc gọi thoại - ${m} phút ${s} giây`;
+      } else {
+        msg = "Cuộc gọi nhỡ";
+      }
+      sendMessage(id, msg);
+    }
+  };
+
   useEffect(() => {
     if (isCaller === 'true') {
       setCallStatus('Calling... (Waiting for answer)');
@@ -49,11 +74,13 @@ export default function CallRoomScreen() {
     }
 
     setOnCallEnded(() => {
+      sendCallLog();
       cleanup();
       router.back();
     });
 
     setOnCallRejected(() => {
+      sendCallLog(true);
       cleanup();
       router.back();
     });
@@ -75,6 +102,12 @@ export default function CallRoomScreen() {
   const handleHangUp = async () => {
     if (connectionId) {
       await endCall(connectionId);
+    }
+    // If we hang up, and we are the caller, we send the log
+    if (callStatus === 'Connected' || callStatus === 'Call Accepted. Negotiating...') {
+       sendCallLog();
+    } else {
+       sendCallLog(true); // Missed or cancelled
     }
     cleanup();
     router.back();

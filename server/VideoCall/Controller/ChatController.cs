@@ -96,14 +96,9 @@ namespace VideoCall.Controller
         [HttpGet("conversations")]
         public async Task<IActionResult> GetConversations()
         {
-            var friendIds = await _db.Friendships
-                .Where(f => f.User1Id == CurrentUserId || f.User2Id == CurrentUserId)
-                .Select(f => f.User1Id == CurrentUserId ? f.User2Id : f.User1Id)
-                .ToListAsync();
-
-            var sentMessageUserIds = await _db.Messages
-                .Where(m => m.SenderId == CurrentUserId && m.ReceiverId != null)
-                .Select(m => m.ReceiverId!.Value)
+            var interactedUserIds = await _db.Messages
+                .Where(m => (m.SenderId == CurrentUserId && m.ReceiverId != null) || (m.ReceiverId == CurrentUserId && m.SenderId != null))
+                .Select(m => m.SenderId == CurrentUserId ? m.ReceiverId!.Value : m.SenderId)
                 .Distinct()
                 .ToListAsync();
 
@@ -112,8 +107,8 @@ namespace VideoCall.Controller
                 .Select(bu => bu.BlockedId)
                 .ToListAsync();
 
-            // Main inbox = Friends OR (Non-friends who we have sent messages to) EXCEPT blocked users
-            var mainInboxUserIds = friendIds.Union(sentMessageUserIds)
+            // Main inbox = users who we have sent/received messages to EXCEPT blocked users
+            var mainInboxUserIds = interactedUserIds
                 .Except(blockedUserIds)
                 .Where(id => id != CurrentUserId)
                 .Distinct()

@@ -704,7 +704,6 @@ export default function PeopleScreen() {
       if (r.ok) {
         const data = await r.json();
         setFriends(data);
-        useUserStore.getState().setUsers(data);
       }
     } catch {}
   }, [accessToken]);

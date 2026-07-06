@@ -175,7 +175,7 @@ export default function ChatsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>messenger</Text>
+          <Text style={styles.headerTitle}>Vidcom</Text>
           {!isConnected && <Text style={styles.connectingText}>(...)</Text>}
         </View>
         <TouchableOpacity style={styles.iconButton} onPress={() => setAddModalVisible(true)}>
