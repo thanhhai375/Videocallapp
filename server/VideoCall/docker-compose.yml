@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: videocall_db
+    environment:
+      POSTGRES_USER: videocall_user
+      POSTGRES_PASSWORD: videocall_secret_password_2024
+      POSTGRES_DB: videocalldb
+    ports:
+      - "5433:5432"
+    volumes:
+      - videocall_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: videocall_api
+    depends_on:
+      - db
+    ports:
+      - "5228:5228"
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=videocalldb;Username=videocall_user;Password=videocall_secret_password_2024
+    restart: unless-stopped
+
+volumes:
+  videocall_pgdata:

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Stack, router } from "expo-router";
-import { View, StyleSheet, StatusBar } from "react-native";
+import { View, StyleSheet, StatusBar, LogBox } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { useAuthStore } from "@features/auth/store/authStore";
@@ -9,8 +10,13 @@ import { useSignalR } from "@shared/hooks/useSignalR";
 import { IncomingCallModal } from "@features/calls/components/IncomingCallModal";
 import { useTheme } from "@shared/constants/colors";
 
+// Disable all logs (redbox/yellowbox) so they don't block interaction
+LogBox.ignoreAllLogs(true);
+
 // Ngăn Splash của hệ thống tự ẩn
 SplashScreen.preventAutoHideAsync();
+
+
 
 export default function RootLayout() {
   const { loadAuth } = useAuthStore();

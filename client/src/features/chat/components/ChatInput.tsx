@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Text,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -41,6 +42,7 @@ export function ChatInput({
   const [isPreparingRecord, setIsPreparingRecord] = useState(false);
   const [isFinishingRecord, setIsFinishingRecord] = useState(false);
   const [recordTime, setRecordTime] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
   const { accessToken } = useAuthStore();
@@ -63,6 +65,9 @@ export function ChatInput({
   };
 
   React.useEffect(() => {
+    const showSubscription = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener("keyboardDidHide", () => setIsKeyboardVisible(false));
+
     let interval: ReturnType<typeof setInterval>;
     if (isRecording && !isFinishingRecord) {
       setRecordTime(0);
@@ -73,6 +78,8 @@ export function ChatInput({
       setRecordTime(0);
     }
     return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
       if (interval) clearInterval(interval);
     };
   }, [isRecording, isFinishingRecord]);
@@ -239,7 +246,7 @@ export function ChatInput({
 
   return (
     <View
-      style={[styles.container, { paddingBottom: Math.max(insets.bottom, 10) }]}
+      style={[styles.container, { paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : (isKeyboardVisible ? 10 : Math.max(insets.bottom, 10)) }]}
     >
       <TouchableOpacity
         style={styles.actionIcon}

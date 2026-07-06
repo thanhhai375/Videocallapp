@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "VideoCall",
+    "name": "VidCom",
     "slug": "videocall-app",
     "version": "1.0.0",
     "scheme": "videocall",
@@ -24,6 +24,10 @@
       },
       "predictiveBackGestureEnabled": false
     },
+    "androidNavigationBar": {
+      "backgroundColor": "#000814",
+      "barStyle": "light-content"
+    },
 
     "web": {
       "bundler": "metro",
@@ -46,8 +50,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Cho phép VideoCallApp truy cập ảnh của bạn",
-          "cameraPermission": "Cho phép VideoCallApp dùng camera"
+          "photosPermission": "Cho phép VidCom truy cập ảnh của bạn",
+          "cameraPermission": "Cho phép VidCom dùng camera"
         }
       ]
     ],

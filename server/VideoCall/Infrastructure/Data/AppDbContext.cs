@@ -12,6 +12,8 @@ namespace VideoCall.Infrastructure.Data
         public DbSet<UserSession> UserSessions => Set<UserSession>();
         public DbSet<FriendRequest> FriendRequests => Set<FriendRequest>();
         public DbSet<Friendship> Friendships => Set<Friendship>();
+        public DbSet<ChatGroup> ChatGroups => Set<ChatGroup>();
+        public DbSet<ChatGroupMember> ChatGroupMembers => Set<ChatGroupMember>();
         public DbSet<Message> Messages => Set<Message>();
         public DbSet<MessageReadReceipt> MessageReadReceipts => Set<MessageReadReceipt>();
         public DbSet<MessageReaction> MessageReactions => Set<MessageReaction>();
@@ -91,6 +93,32 @@ namespace VideoCall.Infrastructure.Data
                 b.HasIndex(f => new { f.User1Id, f.User2Id }).IsUnique();
             });
 
+            // ── CHAT GROUPS ────────────────────────────────────────
+            modelBuilder.Entity<ChatGroup>(b =>
+            {
+                b.HasKey(g => g.Id);
+                b.HasOne(g => g.CreatedBy)
+                    .WithMany()
+                    .HasForeignKey(g => g.CreatedById)
+                    .OnDelete(DeleteBehavior.Restrict);
+                b.HasIndex(g => g.CreatedAt);
+            });
+
+            // ── CHAT GROUP MEMBERS ─────────────────────────────────
+            modelBuilder.Entity<ChatGroupMember>(b =>
+            {
+                b.HasKey(gm => gm.Id);
+                b.HasOne(gm => gm.Group)
+                    .WithMany(g => g.Members)
+                    .HasForeignKey(gm => gm.GroupId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasOne(gm => gm.User)
+                    .WithMany()
+                    .HasForeignKey(gm => gm.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                b.HasIndex(gm => new { gm.GroupId, gm.UserId }).IsUnique();
+            });
+
             // ── MESSAGES ───────────────────────────────────────────
             modelBuilder.Entity<Message>(b =>
             {
@@ -103,9 +131,14 @@ namespace VideoCall.Infrastructure.Data
                     .WithMany(u => u.ReceivedMessages)
                     .HasForeignKey(m => m.ReceiverId)
                     .OnDelete(DeleteBehavior.Restrict);
+                b.HasOne(m => m.Group)
+                    .WithMany(g => g.Messages)
+                    .HasForeignKey(m => m.GroupId)
+                    .OnDelete(DeleteBehavior.Cascade);
                 b.Property(m => m.MessageType).HasConversion<string>();
                 b.HasIndex(m => m.CreatedAt);
                 b.HasIndex(m => new { m.SenderId, m.ReceiverId });
+                b.HasIndex(m => m.GroupId);
                 // Global soft-delete filter
                 b.HasQueryFilter(m => !m.IsDeleted);
             });

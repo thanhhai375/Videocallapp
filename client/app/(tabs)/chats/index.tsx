@@ -287,7 +287,7 @@ export default function ChatsScreen() {
                 lastMessage={content}
                 time={timeStr}
                 unreadCount={c.unreadCount}
-                onPress={() => router.push(`/chat/${c.userId}?name=${c.username}&connectionId=${c.connectionId || ''}` as any)}
+                onPress={() => router.push(`/chat/${c.userId}?name=${c.username}&connectionId=${c.connectionId || ''}&isGroup=${c.isGroup ? 'true' : 'false'}` as any)}
               />
             );
           })}

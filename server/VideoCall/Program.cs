@@ -88,6 +88,25 @@ using (var scope = app.Services.CreateScope())
         );
         db.SaveChanges();
     }
+
+    // Seed new requested users
+    var newUsers = new List<User>
+    {
+        new User { Username = "Trí", PhoneNumber = "0782938463", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123") },
+        new User { Username = "Châu", PhoneNumber = "0866707354", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123") },
+        new User { Username = "Huy", PhoneNumber = "0775656005", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123") },
+        new User { Username = "Lợi", PhoneNumber = "0347904403", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123") },
+        new User { Username = "Hải", PhoneNumber = "0326017487", PasswordHash = BCrypt.Net.BCrypt.HashPassword("123") }
+    };
+
+    foreach (var u in newUsers)
+    {
+        if (!db.Users.Any(x => x.PhoneNumber == u.PhoneNumber))
+        {
+            db.Users.Add(u);
+        }
+    }
+    db.SaveChanges();
 }
 
 // ── MIDDLEWARE PIPELINE ───────────────────────────────────────────────

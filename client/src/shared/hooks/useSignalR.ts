@@ -33,6 +33,15 @@ let onReceiveAnswerCb: ((sdp: string) => void) | null = null;
 let onReceiveIceCb: ((candidate: object) => void) | null = null;
 let onCallAcceptedCb: ((calleeConnectionId: string) => void) | null = null;
 
+// Group Call Callbacks
+let onGroupCallStartedCb: ((groupId: string, callerId: string, callerName: string) => void) | null = null;
+let onGroupCallEndedCb: ((groupId: string) => void) | null = null;
+let onUserJoinedGroupCallCb: ((groupId: string, userId: string, connectionId: string) => void) | null = null;
+let onUserLeftGroupCallCb: ((groupId: string, userId: string, connectionId: string) => void) | null = null;
+let onReceiveGroupOfferCb: ((callerId: string, callerConnectionId: string, sdp: string, groupId: string) => void) | null = null;
+let onReceiveGroupAnswerCb: ((callerId: string, callerConnectionId: string, sdp: string, groupId: string) => void) | null = null;
+let onReceiveGroupIceCb: ((callerId: string, callerConnectionId: string, candidate: object, groupId: string) => void) | null = null;
+
 const initGlobalConnection = async () => {
   if (globalConnection || initPromise) return initPromise;
 
@@ -53,8 +62,9 @@ const initGlobalConnection = async () => {
     useUserStore.getState().updateUserStatus(userId, isOnline, connectionId);
   });
 
-  globalConnection.on("ReceiveMessage", (senderId: string, content: string) => {
-    useChatStore.getState().addMessage(senderId, { senderId, content, timestamp: Date.now() });
+  globalConnection.on("ReceiveMessage", (senderId: string, content: string, messageId?: string, isGroup?: boolean, groupId?: string) => {
+    const targetId = isGroup && groupId ? groupId : senderId;
+    useChatStore.getState().addMessage(targetId, { id: messageId || Math.random().toString(), senderId, content, timestamp: Date.now() });
   });
 
   globalConnection.on("ReceiveTypingStarted", (callerId: string) => {
@@ -82,8 +92,17 @@ const initGlobalConnection = async () => {
   });
   
   globalConnection.on("CallAccepted", (calleeConnectionId: string) => {
-    if (onCallAcceptedCb) onCallAcceptedCb(calleeConnectionId);
+    onCallAcceptedCb?.(calleeConnectionId);
   });
+
+  // Group Call Receivers
+  globalConnection.on("GroupCallStarted", (groupId: string, callerId: string, callerName: string) => onGroupCallStartedCb?.(groupId, callerId, callerName));
+  globalConnection.on("GroupCallEnded", (groupId: string) => onGroupCallEndedCb?.(groupId));
+  globalConnection.on("UserJoinedGroupCall", (groupId: string, userId: string, connectionId: string) => onUserJoinedGroupCallCb?.(groupId, userId, connectionId));
+  globalConnection.on("UserLeftGroupCall", (groupId: string, userId: string, connectionId: string) => onUserLeftGroupCallCb?.(groupId, userId, connectionId));
+  globalConnection.on("ReceiveGroupOffer", (callerId: string, callerConnectionId: string, sdp: string, groupId: string) => onReceiveGroupOfferCb?.(callerId, callerConnectionId, sdp, groupId));
+  globalConnection.on("ReceiveGroupAnswer", (callerId: string, callerConnectionId: string, sdp: string, groupId: string) => onReceiveGroupAnswerCb?.(callerId, callerConnectionId, sdp, groupId));
+  globalConnection.on("ReceiveGroupIce", (callerId: string, callerConnectionId: string, candidate: object, groupId: string) => onReceiveGroupIceCb?.(callerId, callerConnectionId, candidate, groupId));
 
   globalConnection.on("ReceiveOffer", (callerId: string, sdp: string) => {
     if (onReceiveOfferCb) onReceiveOfferCb(callerId, sdp);
@@ -115,7 +134,7 @@ const initGlobalConnection = async () => {
 interface UseSignalRReturn {
   isConnected: boolean;
   incomingCall: IncomingCall | null;
-  sendMessage: (targetId: string, content: string, messageType?: string) => Promise<void>;
+  sendMessage: (targetId: string, content: string, messageType?: string, isGroup?: boolean) => Promise<void>;
   getChatHistory: (targetId: string) => Promise<void>;
   callFriend: (targetConnectionId: string, callType?: string) => Promise<void>;
   acceptCall: (callerConnectionId: string) => Promise<void>;
@@ -131,6 +150,25 @@ interface UseSignalRReturn {
   sendTypingStarted: (targetId: string) => Promise<void>;
   sendTypingEnded: (targetId: string) => Promise<void>;
   sendMarkMessageSeen: (targetId: string, messageId: string) => Promise<void>;
+  createGroup: (name: string, memberIds: string[]) => Promise<void>;
+  
+  // Group Call Methods
+  checkActiveGroupCall: (groupId: string) => Promise<boolean>;
+  startGroupCall: (groupId: string) => Promise<void>;
+  joinGroupCall: (groupId: string) => Promise<string[]>;
+  leaveGroupCall: (groupId: string) => Promise<void>;
+  sendGroupOffer: (targetConnectionId: string, sdp: string, groupId: string) => Promise<void>;
+  sendGroupAnswer: (targetConnectionId: string, sdp: string, groupId: string) => Promise<void>;
+  sendGroupIce: (targetConnectionId: string, candidate: object, groupId: string) => Promise<void>;
+
+  setOnGroupCallStarted: (cb: (groupId: string, callerId: string, callerName: string) => void) => void;
+  setOnGroupCallEnded: (cb: (groupId: string) => void) => void;
+  setOnUserJoinedGroupCall: (cb: (groupId: string, userId: string, connectionId: string) => void) => void;
+  setOnUserLeftGroupCall: (cb: (groupId: string, userId: string, connectionId: string) => void) => void;
+  setOnReceiveGroupOffer: (cb: (callerId: string, callerConnectionId: string, sdp: string, groupId: string) => void) => void;
+  setOnReceiveGroupAnswer: (cb: (callerId: string, callerConnectionId: string, sdp: string, groupId: string) => void) => void;
+  setOnReceiveGroupIce: (cb: (callerId: string, callerConnectionId: string, candidate: object, groupId: string) => void) => void;
+
   disconnect: () => Promise<void>;
 }
 
@@ -158,15 +196,15 @@ export function useSignalR(): UseSignalRReturn {
 
   const invoke = useCallback(async (method: string, ...args: unknown[]) => {
     if (globalConnection?.state === signalR.HubConnectionState.Connected) {
-      await globalConnection.invoke(method, ...args);
+      return await globalConnection.invoke(method, ...args);
     }
   }, []);
 
   return {
     isConnected,
     incomingCall,
-    sendMessage: async (targetId, content, messageType = "Text") => {
-      await invoke("SendMessage", targetId, content, messageType);
+    sendMessage: async (targetId, content, messageType = "Text", isGroup = false) => {
+      await invoke("SendMessage", targetId, content, messageType, isGroup);
     },
     getChatHistory: async (targetId) => {
       const onHistory = (history: any[]) => {
@@ -193,9 +231,30 @@ export function useSignalR(): UseSignalRReturn {
     setOnReceiveAnswer: (cb) => { onReceiveAnswerCb = cb; },
     setOnReceiveIce: (cb) => { onReceiveIceCb = cb; },
     setOnCallAccepted: (cb) => { onCallAcceptedCb = cb; },
+    
+    // Group Call Setters
+    setOnGroupCallStarted: (cb) => { onGroupCallStartedCb = cb; },
+    setOnGroupCallEnded: (cb) => { onGroupCallEndedCb = cb; },
+    setOnUserJoinedGroupCall: (cb) => { onUserJoinedGroupCallCb = cb; },
+    setOnUserLeftGroupCall: (cb) => { onUserLeftGroupCallCb = cb; },
+    setOnReceiveGroupOffer: (cb) => { onReceiveGroupOfferCb = cb; },
+    setOnReceiveGroupAnswer: (cb) => { onReceiveGroupAnswerCb = cb; },
+    setOnReceiveGroupIce: (cb) => { onReceiveGroupIceCb = cb; },
+
     sendTypingStarted: (targetId) => invoke("TypingStarted", targetId),
     sendTypingEnded: (targetId) => invoke("TypingEnded", targetId),
     sendMarkMessageSeen: (targetId, messageId) => invoke("MarkMessageSeen", targetId, messageId),
+    createGroup: (name, memberIds) => invoke("CreateGroup", name, memberIds),
+    
+    // Group Call Methods
+    checkActiveGroupCall: (groupId) => invoke("CheckActiveGroupCall", groupId) as Promise<boolean>,
+    startGroupCall: (groupId) => invoke("StartGroupCall", groupId),
+    joinGroupCall: (groupId) => invoke("JoinGroupCall", groupId) as Promise<string[]>,
+    leaveGroupCall: (groupId) => invoke("LeaveGroupCall", groupId),
+    sendGroupOffer: (targetConnectionId, sdp, groupId) => invoke("SendGroupOffer", targetConnectionId, sdp, groupId),
+    sendGroupAnswer: (targetConnectionId, sdp, groupId) => invoke("SendGroupAnswer", targetConnectionId, sdp, groupId),
+    sendGroupIce: (targetConnectionId, candidate, groupId) => invoke("SendGroupIce", targetConnectionId, candidate, groupId),
+
     disconnect: async () => {
       if (globalConnection) {
         await globalConnection.stop();

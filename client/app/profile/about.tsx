@@ -63,9 +63,9 @@ export default function AboutScreen() {
           <View style={styles.logoBox}>
             <Ionicons name="videocam" size={48} color="#FFF" />
           </View>
-          <Text style={styles.appName}>VideoCallApp</Text>
+          <Text style={styles.appName}>VidCom</Text>
           <Text style={styles.version}>Phiên bản 1.0.0</Text>
-          <Text style={styles.copyright}>© 2026 VideoCallApp Inc.</Text>
+          <Text style={styles.copyright}>© 2026 VidCom Inc.</Text>
         </View>
 
         {/* Links Section */}
@@ -103,23 +103,23 @@ export default function AboutScreen() {
 
 const termsContent = `ĐIỀU KHOẢN DỊCH VỤ
 
-Chào mừng bạn đến với VideoCallApp. Bằng việc sử dụng ứng dụng này, bạn đồng ý tuân thủ các điều khoản dịch vụ sau:
+Chào mừng bạn đến với VidCom. Bằng việc sử dụng ứng dụng này, bạn đồng ý tuân thủ các điều khoản dịch vụ sau:
 
 1. Chấp thuận điều khoản
-Bằng cách tải xuống, cài đặt hoặc sử dụng VideoCallApp, bạn đồng ý chịu sự ràng buộc bởi các Điều khoản này. Nếu bạn không đồng ý với bất kỳ phần nào của các điều khoản, bạn phải ngừng sử dụng ứng dụng ngay lập tức.
+Bằng cách tải xuống, cài đặt hoặc sử dụng VidCom, bạn đồng ý chịu sự ràng buộc bởi các Điều khoản này. Nếu bạn không đồng ý với bất kỳ phần nào của các điều khoản, bạn phải ngừng sử dụng ứng dụng ngay lập tức.
 
 2. Đăng ký tài khoản
 Để sử dụng các tính năng gọi điện và nhắn tin, bạn cần tạo tài khoản thông qua số điện thoại cá nhân. Bạn chịu trách nhiệm bảo mật tài khoản của mình và chịu mọi trách nhiệm về tất cả các hoạt động xảy ra dưới tài khoản của bạn.
 
 3. Hành vi người dùng
-Bạn đồng ý sử dụng VideoCallApp chỉ cho các mục đích hợp pháp. Nghiêm cấm:
+Bạn đồng ý sử dụng VidCom chỉ cho các mục đích hợp pháp. Nghiêm cấm:
 - Sử dụng ứng dụng để quấy rối, đe dọa, lừa đảo, hoặc xúc phạm người khác.
 - Gửi tin nhắn spam, quảng cáo không mong muốn, tin nhắn chứa phần mềm độc hại.
 - Mạo danh cá nhân hoặc tổ chức khác.
 - Chụp ảnh, ghi âm cuộc gọi của người khác mà không có sự đồng ý của họ.
 
 4. Quyền sở hữu trí tuệ
-Tất cả mã nguồn, giao diện, thiết kế và logo của VideoCallApp đều thuộc quyền sở hữu trí tuệ của chúng tôi hoặc các đối tác cấp phép. Bạn không được sao chép, chỉnh sửa hoặc dịch ngược mã nguồn ứng dụng.
+Tất cả mã nguồn, giao diện, thiết kế và logo của VidCom đều thuộc quyền sở hữu trí tuệ của chúng tôi hoặc các đối tác cấp phép. Bạn không được sao chép, chỉnh sửa hoặc dịch ngược mã nguồn ứng dụng.
 
 5. Chấm dứt dịch vụ
 Chúng tôi có quyền chấm dứt hoặc đình chỉ tài khoản của bạn ngay lập tức, không cần thông báo trước, nếu bạn vi phạm bất kỳ điều khoản nào.
@@ -152,7 +152,7 @@ Chúng tôi cam kết không bán, trao đổi hoặc chuyển giao thông tin c
 5. Quyền của bạn
 Bạn có quyền sửa đổi thông tin cá nhân tại mục Cài đặt tài khoản hoặc xóa bỏ tài khoản của mình bất kỳ lúc nào.
 
-Bằng cách sử dụng VideoCallApp, bạn đồng ý với Chính sách bảo mật này.`;
+Bằng cách sử dụng VidCom, bạn đồng ý với Chính sách bảo mật này.`;
 
 const getStyles = (Colors: any) =>
   StyleSheet.create({

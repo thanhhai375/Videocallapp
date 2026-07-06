@@ -28,7 +28,11 @@ export default function CallsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchCalls = async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/calls`, {
         headers: { Authorization: `Bearer ${accessToken}` },

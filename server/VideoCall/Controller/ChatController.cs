@@ -102,8 +102,8 @@ namespace VideoCall.Controller
                 .ToListAsync();
 
             var sentMessageUserIds = await _db.Messages
-                .Where(m => m.SenderId == CurrentUserId)
-                .Select(m => m.ReceiverId)
+                .Where(m => m.SenderId == CurrentUserId && m.ReceiverId != null)
+                .Select(m => m.ReceiverId!.Value)
                 .Distinct()
                 .ToListAsync();
 
@@ -120,7 +120,10 @@ namespace VideoCall.Controller
                 .ToList();
 
             var result = await BuildConversationList(mainInboxUserIds);
-            return Ok(result);
+            var groupResult = await BuildGroupConversationList();
+            
+            var combined = result.Concat(groupResult).OrderByDescending(r => ((dynamic)r).lastMessage?.createdAt).ToList();
+            return Ok(combined);
         }
 
         // GET /api/chat/requests - List all message requests (not friends, no reply, not blocked, not spam)
@@ -133,8 +136,8 @@ namespace VideoCall.Controller
                 .ToListAsync();
 
             var sentMessageUserIds = await _db.Messages
-                .Where(m => m.SenderId == CurrentUserId)
-                .Select(m => m.ReceiverId)
+                .Where(m => m.SenderId == CurrentUserId && m.ReceiverId != null)
+                .Select(m => m.ReceiverId!.Value)
                 .Distinct()
                 .ToListAsync();
 
@@ -179,8 +182,8 @@ namespace VideoCall.Controller
                 .ToListAsync();
 
             var sentMessageUserIds = await _db.Messages
-                .Where(m => m.SenderId == CurrentUserId)
-                .Select(m => m.ReceiverId)
+                .Where(m => m.SenderId == CurrentUserId && m.ReceiverId != null)
+                .Select(m => m.ReceiverId!.Value)
                 .Distinct()
                 .ToListAsync();
 
@@ -268,6 +271,107 @@ namespace VideoCall.Controller
                 });
             }
             return result.OrderByDescending(r => ((dynamic)r).lastMessage?.createdAt).ToList();
+        }
+
+        [HttpGet("group/{groupId}/members")]
+        public async Task<IActionResult> GetGroupMembers(Guid groupId)
+        {
+            var isMember = await _db.ChatGroupMembers.AnyAsync(gm => gm.GroupId == groupId && gm.UserId == CurrentUserId);
+            if (!isMember) return Unauthorized();
+
+            var members = await _db.ChatGroupMembers
+                .Include(gm => gm.User)
+                .Where(gm => gm.GroupId == groupId)
+                .Select(gm => new
+                {
+                    gm.User.Id,
+                    gm.User.Username,
+                    gm.User.ProfilePictureUrl,
+                    gm.Role,
+                    gm.User.IsOnline
+                })
+                .ToListAsync();
+
+            return Ok(members);
+        }
+
+        [HttpDelete("history/{targetId}")]
+        public async Task<IActionResult> DeleteHistory(Guid targetId, [FromQuery] bool isGroup = false)
+        {
+            if (isGroup)
+            {
+                var messages = await _db.Messages
+                    .Where(m => m.GroupId == targetId)
+                    .ToListAsync();
+                _db.Messages.RemoveRange(messages);
+            }
+            else
+            {
+                var messages = await _db.Messages
+                    .Where(m =>
+                        (m.SenderId == CurrentUserId && m.ReceiverId == targetId) ||
+                        (m.SenderId == targetId && m.ReceiverId == CurrentUserId))
+                    .ToListAsync();
+                _db.Messages.RemoveRange(messages);
+            }
+
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "Đã xóa cuộc trò chuyện." });
+        }
+
+        [HttpDelete("group/{groupId}/leave")]
+        public async Task<IActionResult> LeaveGroup(Guid groupId)
+        {
+            var member = await _db.ChatGroupMembers
+                .FirstOrDefaultAsync(gm => gm.GroupId == groupId && gm.UserId == CurrentUserId);
+
+            if (member == null) return NotFound("Bạn không ở trong nhóm này.");
+
+            _db.ChatGroupMembers.Remove(member);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "Đã rời nhóm." });
+        }
+        private async Task<List<object>> BuildGroupConversationList()
+        {
+            var result = new List<object>();
+            var groupIds = await _db.ChatGroupMembers
+                .Where(gm => gm.UserId == CurrentUserId)
+                .Select(gm => gm.GroupId)
+                .ToListAsync();
+
+            foreach (var groupId in groupIds)
+            {
+                var group = await _db.ChatGroups.FindAsync(groupId);
+                if (group == null) continue;
+
+                var lastMessage = await _db.Messages
+                    .Where(m => m.GroupId == groupId)
+                    .OrderByDescending(m => m.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                var unreadCount = 0; // Simplified for now
+
+                result.Add(new
+                {
+                    userId = group.Id, // Frontend uses userId for routing ID right now
+                    username = group.Name,
+                    profilePictureUrl = group.AvatarUrl,
+                    isOnline = false,
+                    lastSeenAt = (DateTime?)null,
+                    connectionId = (string?)null,
+                    isGroup = true,
+                    lastMessage = lastMessage == null ? null : new
+                    {
+                        content = lastMessage.IsDeleted ? "Tin nhắn đã bị xóa" : lastMessage.Content,
+                        messageType = lastMessage.MessageType.ToString(),
+                        createdAt = lastMessage.CreatedAt,
+                        isMine = lastMessage.SenderId == CurrentUserId
+                    },
+                    unreadCount
+                });
+            }
+            return result;
         }
     }
 }

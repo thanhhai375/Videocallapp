@@ -4,11 +4,14 @@ using System.Security.Claims;
 using VideoCall.Domain.Entities;
 using VideoCall.Infrastructure.Data;
 
+using System.Collections.Concurrent;
+
 namespace VideoCall.Infrastructure.SignalR
 {
     [Authorize]
     public class VideoCallHub : Hub
     {
+        private static readonly ConcurrentDictionary<string, List<string>> _activeGroupCalls = new();
         private readonly AppDbContext _db;
 
         public VideoCallHub(AppDbContext db)
@@ -39,6 +42,17 @@ namespace VideoCall.Infrastructure.SignalR
                 .Select(u => new { u.Id, u.Username, u.IsOnline, u.ConnectionId, u.ProfilePictureUrl, Name = u.Username })
                 .ToList();
 
+            // Join all chat groups
+            var groupIds = _db.ChatGroupMembers
+                .Where(gm => gm.UserId == userId)
+                .Select(gm => gm.GroupId)
+                .ToList();
+            
+            foreach (var groupId in groupIds)
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, groupId.ToString());
+            }
+
             await Clients.Caller.SendAsync("LoadFriends", friends);
             await Clients.Others.SendAsync("UserStatusChanged", userId.ToString(), true, Context.ConnectionId);
 
@@ -48,6 +62,22 @@ namespace VideoCall.Infrastructure.SignalR
         public override async Task OnDisconnectedAsync(Exception? ex)
         {
             var userId = CurrentUserId;
+
+            // Remove from any active group calls
+            foreach (var call in _activeGroupCalls)
+            {
+                if (call.Value.Contains(Context.ConnectionId))
+                {
+                    call.Value.Remove(Context.ConnectionId);
+                    await Clients.Group(call.Key).SendAsync("UserLeftGroupCall", userId.ToString(), Context.ConnectionId);
+                    if (call.Value.Count == 0)
+                    {
+                        _activeGroupCalls.TryRemove(call.Key, out _);
+                        await Clients.Group(call.Key).SendAsync("GroupCallEnded", call.Key);
+                    }
+                }
+            }
+
             var user = await _db.Users.FindAsync(userId);
             if (user != null)
             {
@@ -61,10 +91,10 @@ namespace VideoCall.Infrastructure.SignalR
         }
 
         // ── CHAT ─────────────────────────────────────────────────────
-        public async Task SendMessage(string targetId, string content, string messageType = "Text")
+        public async Task SendMessage(string targetId, string content, string messageType = "Text", bool isGroup = false)
         {
             var senderId = CurrentUserId;
-            if (!Guid.TryParse(targetId, out var receiverId)) return;
+            if (!Guid.TryParse(targetId, out var parsedId)) return;
 
             var msgType = Enum.TryParse<MessageType>(messageType, out var mt) ? mt : MessageType.Text;
             string? mediaUrl = msgType != MessageType.Text ? content : null;
@@ -72,11 +102,16 @@ namespace VideoCall.Infrastructure.SignalR
             var message = new Message
             {
                 SenderId = senderId,
-                ReceiverId = receiverId,
                 Content = msgType == MessageType.Text ? content : string.Empty,
                 MessageType = msgType,
                 MediaUrl = mediaUrl,
             };
+
+            if (isGroup) {
+                message.GroupId = parsedId;
+            } else {
+                message.ReceiverId = parsedId;
+            }
 
             _db.Messages.Add(message);
             await _db.SaveChangesAsync();
@@ -88,16 +123,22 @@ namespace VideoCall.Infrastructure.SignalR
                 content = message.Content,
                 messageType = message.MessageType.ToString(),
                 mediaUrl = message.MediaUrl,
-                createdAt = message.CreatedAt
+                createdAt = message.CreatedAt,
+                isGroup = isGroup,
+                groupId = isGroup ? parsedId.ToString() : null
             };
 
-            await Clients.Caller.SendAsync("ReceiveMessage", senderId.ToString(), content, message.Id.ToString());
-
-            var targetUser = await _db.Users.FindAsync(receiverId);
-            if (targetUser?.ConnectionId != null)
-            {
-                await Clients.Client(targetUser.ConnectionId)
-                    .SendAsync("ReceiveMessage", senderId.ToString(), content, message.Id.ToString());
+            if (isGroup) {
+                // Send to the entire group
+                await Clients.Group(parsedId.ToString()).SendAsync("ReceiveMessage", senderId.ToString(), content, message.Id.ToString(), true, parsedId.ToString());
+            } else {
+                await Clients.Caller.SendAsync("ReceiveMessage", senderId.ToString(), content, message.Id.ToString(), false, null);
+                var targetUser = await _db.Users.FindAsync(parsedId);
+                if (targetUser?.ConnectionId != null)
+                {
+                    await Clients.Client(targetUser.ConnectionId)
+                        .SendAsync("ReceiveMessage", senderId.ToString(), content, message.Id.ToString(), false, null);
+                }
             }
         }
 
@@ -106,13 +147,36 @@ namespace VideoCall.Infrastructure.SignalR
             if (!Guid.TryParse(targetId, out var otherId)) return;
             var myId = CurrentUserId;
 
-            var history = _db.Messages
-                .Where(m =>
-                    (m.SenderId == myId && m.ReceiverId == otherId) ||
-                    (m.SenderId == otherId && m.ReceiverId == myId))
-                .OrderBy(m => m.CreatedAt)
-                .Select(m => new { m.SenderId, Content = m.IsDeleted ? "Tin nhắn đã bị xóa" : m.Content, m.CreatedAt, m.Id })
+            var isGroup = _db.ChatGroups.Any(g => g.Id == otherId);
+
+            List<dynamic> history;
+            if (isGroup) {
+                history = _db.Messages
+                    .Where(m => m.GroupId == otherId)
+                    .OrderBy(m => m.CreatedAt)
+                    .Select(m => new { m.SenderId, Content = m.IsDeleted ? "Tin nhắn đã bị xóa" : m.Content, m.CreatedAt, m.Id })
+                    .ToList<dynamic>();
+            } else {
+                history = _db.Messages
+                    .Where(m =>
+                        (m.SenderId == myId && m.ReceiverId == otherId) ||
+                        (m.SenderId == otherId && m.ReceiverId == myId))
+                    .OrderBy(m => m.CreatedAt)
+                    .Select(m => new { m.SenderId, Content = m.IsDeleted ? "Tin nhắn đã bị xóa" : m.Content, m.CreatedAt, m.Id })
+                    .ToList<dynamic>();
+            }
+
+            var unreadIds = _db.Messages
+                .Where(m => !isGroup ? (m.SenderId == otherId && m.ReceiverId == myId) : (m.GroupId == otherId && m.SenderId != myId))
+                .Where(m => !m.ReadReceipts.Any(r => r.ReaderId == myId))
+                .Select(m => m.Id)
                 .ToList();
+            
+            foreach (var msgId in unreadIds)
+            {
+                _db.MessageReadReceipts.Add(new MessageReadReceipt { MessageId = msgId, ReaderId = myId });
+            }
+            if (unreadIds.Any()) await _db.SaveChangesAsync();
 
             await Clients.Caller.SendAsync("LoadChatHistory", history);
         }
@@ -129,6 +193,40 @@ namespace VideoCall.Infrastructure.SignalR
             var targetUser = await _db.Users.FindAsync(Guid.Parse(targetId));
             if (targetUser?.ConnectionId != null)
                 await Clients.Client(targetUser.ConnectionId).SendAsync("ReceiveTypingEnded", Context.ConnectionId);
+        }
+
+        public async Task CreateGroup(string name, List<string> memberIds)
+        {
+            var groupId = Guid.NewGuid();
+            var group = new ChatGroup
+            {
+                Id = groupId,
+                Name = name,
+                CreatedById = CurrentUserId
+            };
+
+            _db.ChatGroups.Add(group);
+
+            // Add Creator
+            _db.ChatGroupMembers.Add(new ChatGroupMember { GroupId = groupId, UserId = CurrentUserId, Role = "Admin" });
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupId.ToString());
+
+            // Add other members
+            foreach (var mId in memberIds)
+            {
+                if (Guid.TryParse(mId, out var parsedId))
+                {
+                    _db.ChatGroupMembers.Add(new ChatGroupMember { GroupId = groupId, UserId = parsedId, Role = "Member" });
+                    var user = await _db.Users.FindAsync(parsedId);
+                    if (user?.ConnectionId != null)
+                    {
+                        await Groups.AddToGroupAsync(user.ConnectionId, groupId.ToString());
+                    }
+                }
+            }
+
+            await _db.SaveChangesAsync();
+            await Clients.Group(groupId.ToString()).SendAsync("GroupCreated", groupId.ToString(), name);
         }
 
         public async Task MarkMessageSeen(string targetId, string messageId)
@@ -226,5 +324,72 @@ namespace VideoCall.Infrastructure.SignalR
         public async Task SendOffer(string targetId, string sdp) => await Clients.Client(targetId).SendAsync("ReceiveOffer", Context.ConnectionId, sdp);
         public async Task SendAnswer(string targetId, string sdp) => await Clients.Client(targetId).SendAsync("ReceiveAnswer", sdp);
         public async Task SendIce(string targetId, object candidate) => await Clients.Client(targetId).SendAsync("ReceiveIce", candidate);
+        public Task<bool> CheckActiveGroupCall(string groupId)
+        {
+            return Task.FromResult(_activeGroupCalls.ContainsKey(groupId));
+        }
+
+        public async Task StartGroupCall(string groupId)
+        {
+            if (!_activeGroupCalls.ContainsKey(groupId))
+            {
+                _activeGroupCalls[groupId] = new List<string> { Context.ConnectionId };
+                // Notify the group that a call has started
+                var user = await _db.Users.FindAsync(CurrentUserId);
+                await Clients.Group(groupId).SendAsync("GroupCallStarted", groupId, CurrentUserId.ToString(), user?.Username);
+            }
+        }
+
+        public async Task<List<string>> JoinGroupCall(string groupId)
+        {
+            if (!_activeGroupCalls.ContainsKey(groupId))
+            {
+                _activeGroupCalls[groupId] = new List<string>();
+            }
+
+            var callMembers = _activeGroupCalls[groupId];
+            var currentMembers = callMembers.ToList(); // Return existing members
+
+            if (!callMembers.Contains(Context.ConnectionId))
+            {
+                callMembers.Add(Context.ConnectionId);
+                await Clients.Group(groupId).SendAsync("UserJoinedGroupCall", groupId, CurrentUserId.ToString(), Context.ConnectionId);
+            }
+
+            return currentMembers;
+        }
+
+        public async Task LeaveGroupCall(string groupId)
+        {
+            if (_activeGroupCalls.TryGetValue(groupId, out var members))
+            {
+                if (members.Contains(Context.ConnectionId))
+                {
+                    members.Remove(Context.ConnectionId);
+                    await Clients.Group(groupId).SendAsync("UserLeftGroupCall", CurrentUserId.ToString(), Context.ConnectionId);
+                    
+                    if (members.Count == 0)
+                    {
+                        _activeGroupCalls.TryRemove(groupId, out _);
+                        await Clients.Group(groupId).SendAsync("GroupCallEnded", groupId);
+                    }
+                }
+            }
+        }
+
+        public async Task SendGroupOffer(string targetConnectionId, string sdp, string groupId)
+        {
+            await Clients.Client(targetConnectionId).SendAsync("ReceiveGroupOffer", CurrentUserId.ToString(), Context.ConnectionId, sdp, groupId);
+        }
+
+        public async Task SendGroupAnswer(string targetConnectionId, string sdp, string groupId)
+        {
+            await Clients.Client(targetConnectionId).SendAsync("ReceiveGroupAnswer", CurrentUserId.ToString(), Context.ConnectionId, sdp, groupId);
+        }
+
+        public async Task SendGroupIce(string targetConnectionId, string candidate, string groupId)
+        {
+            await Clients.Client(targetConnectionId).SendAsync("ReceiveGroupIce", CurrentUserId.ToString(), Context.ConnectionId, candidate, groupId);
+        }
     }
 }

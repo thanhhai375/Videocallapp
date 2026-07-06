@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, Alert, Keyboard } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSignalR } from '@shared/hooks/useSignalR';
@@ -18,16 +18,57 @@ export default function ChatRoomScreen() {
   const Colors = useTheme();
   const styles = getStyles(Colors);
   const insets = useSafeAreaInsets();
-  const { id, name, connectionId } = useLocalSearchParams<{ id: string, name: string, connectionId: string }>();
+  const { id, name, connectionId, isGroup } = useLocalSearchParams<{ id: string, name: string, connectionId: string, isGroup?: string }>();
+  const isGroupBool = isGroup === 'true';
   const { userName, accessToken } = useAuthStore();
   const { getUserById } = useUserStore();
   const { getMessages, typingStatus, markMessageSeen } = useChatStore();
-  const { sendMessage, getChatHistory, callFriend, sendTypingStarted, sendTypingEnded, sendMarkMessageSeen } = useSignalR();
+  const [isCallActive, setIsCallActive] = useState(false);
+  const { 
+    sendMessage, 
+    getChatHistory, 
+    callFriend, 
+    sendTypingStarted, 
+    sendTypingEnded, 
+    sendMarkMessageSeen,
+    checkActiveGroupCall,
+    setOnGroupCallStarted,
+    setOnGroupCallEnded
+  } = useSignalR();
   const flatListRef = useRef<FlatList>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Group Call Active State
+  useEffect(() => {
+    if (isGroupBool && id) {
+      checkActiveGroupCall(id).then(setIsCallActive);
+
+      setOnGroupCallStarted((groupId) => {
+        if (groupId === id) setIsCallActive(true);
+      });
+      setOnGroupCallEnded((groupId) => {
+        if (groupId === id) setIsCallActive(false);
+      });
+    }
+  }, [id, isGroupBool]);
 
   const messages = getMessages(id || '');
   const user = getUserById(id || '');
-  const isOnline = user?.isOnline || false;
+  const isOnline = isGroupBool ? true : (user?.isOnline || false);
   const isTyping = typingStatus[id || ''] || false;
 
   useEffect(() => {
@@ -39,7 +80,7 @@ export default function ChatRoomScreen() {
   useEffect(() => {
     // Mark last message as seen
     const lastMsg = messages[messages.length - 1];
-    if (lastMsg && lastMsg.senderId === id && !lastMsg.isSeen) {
+    if (lastMsg && lastMsg.senderId !== 'ME' && !lastMsg.isSeen) {
       markMessageSeen(id, lastMsg.id);
       sendMarkMessageSeen(id, lastMsg.id);
     }
@@ -54,7 +95,7 @@ export default function ChatRoomScreen() {
         messageType: type,
         timestamp: Date.now(),
       });
-      await sendMessage(id, content, type);
+      await sendMessage(id, content, type, isGroupBool);
 
       // Scroll to bottom
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -62,6 +103,13 @@ export default function ChatRoomScreen() {
   };
 
   const handleVideoCall = async () => {
+    if (isGroupBool) {
+      if (id) {
+        router.push(`/call/group?groupId=${id}&name=${name}&isInitiator=${!isCallActive}`);
+      }
+      return;
+    }
+
     if (user?.connectionId && id) {
       await callFriend(user.connectionId);
       router.push(`/call/${id}?name=${name}&connectionId=${user.connectionId}&isCaller=true`);
@@ -136,8 +184,9 @@ export default function ChatRoomScreen() {
   return (
     <KeyboardAvoidingView 
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : insets.bottom}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      enabled={Platform.OS === 'ios'}
     >
       {/* Header */}
       <View style={styles.header}>
@@ -145,33 +194,54 @@ export default function ChatRoomScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
             <Ionicons name="chevron-back" size={30} color={Colors.primary} />
           </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
+          <TouchableOpacity 
+            style={styles.headerTitleContainer}
+            onPress={() => router.push(`/chat/settings/${id}?name=${name}&isGroup=${isGroupBool}`)}
+          >
             <Avatar name={name || '?'} isOnline={isOnline} size="sm" />
             <View style={styles.headerTextWrap}>
               <Text style={styles.headerName}>{name}</Text>
-              {isOnline && <Text style={styles.headerStatus}>Đang hoạt động</Text>}
+              {isOnline && !isGroupBool && <Text style={styles.headerStatus}>Đang hoạt động</Text>}
+              {isGroupBool && <Text style={styles.headerStatus}>Nhóm trò chuyện</Text>}
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
         <View style={styles.headerRight}>
           <TouchableOpacity style={styles.iconButtonRight} onPress={handleAudioCall}>
             <Ionicons 
               name="call" 
               size={24} 
-              color={user?.connectionId ? Colors.primary : Colors.textMuted} 
-              disabled={!user?.connectionId}
+              color={user?.connectionId || isGroupBool ? Colors.primary : Colors.textMuted} 
+              disabled={!user?.connectionId && !isGroupBool}
             />
           </TouchableOpacity>
           <TouchableOpacity style={styles.iconButtonRight} onPress={handleVideoCall}>
             <Ionicons 
               name="videocam" 
               size={28} 
-              color={user?.connectionId ? Colors.primary : Colors.textMuted} 
-              disabled={!user?.connectionId}
+              color={user?.connectionId || isGroupBool ? Colors.primary : Colors.textMuted} 
+              disabled={!user?.connectionId && !isGroupBool}
             />
           </TouchableOpacity>
         </View>
       </View>
+
+      {isGroupBool && isCallActive && (
+        <TouchableOpacity 
+          style={{
+            backgroundColor: '#4CAF50',
+            padding: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8
+          }}
+          onPress={() => router.push(`/call/group?groupId=${id}&name=${name}&isInitiator=false`)}
+        >
+          <Ionicons name="videocam" size={20} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Cuộc gọi nhóm đang diễn ra - Tham gia ngay</Text>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.content}>
         <FlatList
@@ -184,27 +254,34 @@ export default function ChatRoomScreen() {
             <View style={styles.chatHeaderInfo}>
               <Avatar name={name || '?'} size="xl" />
               <Text style={styles.chatHeaderName}>{name}</Text>
-              <Text style={styles.chatHeaderSubtitle}>
-                {user ? 'Các bạn là bạn bè trên VideoCallApp' : 'Người này chưa có trong danh sách bạn bè của bạn'}
-              </Text>
-              {!user && (
-                <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: Colors.surfaceElevated }]}
-                    onPress={handleBlockUser}
-                  >
-                    <Ionicons name="ban-outline" size={16} color={Colors.text} style={{ marginRight: 6 }} />
-                    <Text style={{ color: Colors.text, fontWeight: '600', fontSize: 14 }}>Chặn / Spam</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: Colors.primary }]}
-                    onPress={handleAddFriendDirectly}
-                  >
-                    <Ionicons name="person-add-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
-                    <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>Kết bạn</Text>
-                  </TouchableOpacity>
-                </View>
+              
+              {!isGroupBool ? (
+                <>
+                  <Text style={styles.chatHeaderSubtitle}>
+                    {user ? 'Các bạn là bạn bè trên VideoCallApp' : 'Người này chưa có trong danh sách bạn bè của bạn'}
+                  </Text>
+                  {!user && (
+                    <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: Colors.surfaceElevated }]}
+                        onPress={handleBlockUser}
+                      >
+                        <Ionicons name="ban-outline" size={16} color={Colors.text} style={{ marginRight: 6 }} />
+                        <Text style={{ color: Colors.text, fontWeight: '600', fontSize: 14 }}>Chặn / Spam</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: Colors.primary }]}
+                        onPress={handleAddFriendDirectly}
+                      >
+                        <Ionicons name="person-add-outline" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                        <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>Kết bạn</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <Text style={styles.chatHeaderSubtitle}>Nhóm trò chuyện</Text>
               )}
             </View>
           }
