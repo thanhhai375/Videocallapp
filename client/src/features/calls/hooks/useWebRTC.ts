@@ -7,7 +7,6 @@ import {
   MediaStream,
 } from 'react-native-webrtc';
 import { useSignalR } from '@shared/hooks/useSignalR';
-import { setAudioModeAsync, setIsAudioActiveAsync } from 'expo-audio';
 
 // STUN Servers for ICE gathering
 const peerConstraints = {
@@ -43,18 +42,6 @@ export function useWebRTC(targetConnectionId: string | null) {
           frameRate: { ideal: 30 }
         },
       });
-
-      // Force speakerphone using expo-audio
-      try {
-        await setAudioModeAsync({
-          shouldRouteThroughEarpiece: false,
-          playsInSilentMode: true,
-          allowsRecording: true,
-        });
-        await setIsAudioActiveAsync(true);
-      } catch (e) {
-        console.warn('Could not set audio mode', e);
-      }
 
       setLocalStream(stream as MediaStream);
       return stream as MediaStream;

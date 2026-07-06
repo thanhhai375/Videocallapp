@@ -14,6 +14,7 @@ export default function GroupCallScreen() {
   const router = useRouter();
   const [micEnabled, setMicEnabled] = useState(true);
   const [cameraEnabled, setCameraEnabled] = useState(true);
+  const [hasConnected, setHasConnected] = useState(false);
 
   const {
     localStream,
@@ -41,6 +42,18 @@ export default function GroupCallScreen() {
     await endCall();
     router.back();
   };
+
+  useEffect(() => {
+    if (remoteStreams.size > 0) {
+      setHasConnected(true);
+    }
+  }, [remoteStreams.size]);
+
+  useEffect(() => {
+    if (hasConnected && remoteStreams.size === 0) {
+      onEndCall();
+    }
+  }, [hasConnected, remoteStreams.size]);
 
   const onToggleMic = () => {
     toggleMic();
