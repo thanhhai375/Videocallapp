@@ -44,6 +44,7 @@ export function ChatInput({
   const [recordTime, setRecordTime] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingRef = useRef(false);
   const insets = useSafeAreaInsets();
   const { accessToken } = useAuthStore();
 
@@ -52,15 +53,21 @@ export function ChatInput({
 
   const handleTextChange = (newText: string) => {
     setText(newText);
-    if (newText.trim().length > 0) {
-      onTypingStart?.();
+    if (newText.length > 0) {
+      if (!isTypingRef.current) {
+        isTypingRef.current = true;
+        if (onTypingStart) onTypingStart();
+      }
+      
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
-        onTypingEnd?.();
+        isTypingRef.current = false;
+        if (onTypingEnd) onTypingEnd();
       }, 2000);
     } else {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      onTypingEnd?.();
+      isTypingRef.current = false;
+      if (onTypingEnd) onTypingEnd();
     }
   };
 
