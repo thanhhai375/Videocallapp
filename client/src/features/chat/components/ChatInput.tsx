@@ -107,7 +107,7 @@ export function ChatInput({
     try {
       const res = await FileSystem.uploadAsync(`${API_URL}/upload`, uri, {
         httpMethod: 'POST',
-        uploadType: 1, // 1 is MULTIPART
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
         fieldName: 'file',
         mimeType: mimeType,
         headers: {
