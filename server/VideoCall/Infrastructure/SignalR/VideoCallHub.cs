@@ -11,7 +11,7 @@ namespace VideoCall.Infrastructure.SignalR
     [Authorize]
     public class VideoCallHub : Hub
     {
-        private static readonly ConcurrentDictionary<string, List<string>> _activeGroupCalls = new();
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, List<(string ConnectionId, string UserId, string Username)>> _activeGroupCalls = new();
         private readonly AppDbContext _db;
 
         public VideoCallHub(AppDbContext db)
@@ -66,10 +66,10 @@ namespace VideoCall.Infrastructure.SignalR
             // Remove from any active group calls
             foreach (var call in _activeGroupCalls)
             {
-                if (call.Value.Contains(Context.ConnectionId))
+                if (call.Value.Any(m => m.ConnectionId == Context.ConnectionId))
                 {
-                    call.Value.Remove(Context.ConnectionId);
-                    await Clients.Group(call.Key).SendAsync("UserLeftGroupCall", userId.ToString(), Context.ConnectionId);
+                    call.Value.RemoveAll(m => m.ConnectionId == Context.ConnectionId);
+                    await Clients.Group(call.Key).SendAsync("UserLeftGroupCall", call.Key, userId.ToString(), Context.ConnectionId);
                     if (call.Value.Count == 0)
                     {
                         _activeGroupCalls.TryRemove(call.Key, out _);
@@ -331,50 +331,50 @@ namespace VideoCall.Infrastructure.SignalR
 
         public async Task StartGroupCall(string groupId)
         {
-            if (!_activeGroupCalls.ContainsKey(groupId))
-            {
-                _activeGroupCalls[groupId] = new List<string> { Context.ConnectionId };
-                // Notify the group that a call has started
-                var user = await _db.Users.FindAsync(CurrentUserId);
-                await Clients.Group(groupId).SendAsync("GroupCallStarted", groupId, CurrentUserId.ToString(), user?.Username);
-            }
+            var user = await _db.Users.FindAsync(CurrentUserId);
+            _activeGroupCalls[groupId] = new List<(string, string, string)> { (Context.ConnectionId, CurrentUserId.ToString(), user?.Username ?? "Unknown") };
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupId);
+            await Clients.Group(groupId).SendAsync("GroupCallStarted", groupId, CurrentUserId, user?.Username ?? "Unknown");
         }
 
-        public async Task<List<string>> JoinGroupCall(string groupId)
+        public async Task<object> JoinGroupCall(string groupId)
         {
             if (!_activeGroupCalls.ContainsKey(groupId))
             {
-                _activeGroupCalls[groupId] = new List<string>();
+                _activeGroupCalls[groupId] = new List<(string, string, string)>();
             }
-
-            var callMembers = _activeGroupCalls[groupId];
-            var currentMembers = callMembers.ToList(); // Return existing members
-
-            if (!callMembers.Contains(Context.ConnectionId))
+            var members = _activeGroupCalls[groupId];
+            
+            var existingMembers = members.Select(m => new { connectionId = m.ConnectionId, userId = m.UserId, name = m.Username }).ToList();
+            var user = await _db.Users.FindAsync(CurrentUserId);
+            
+            if (!members.Any(m => m.ConnectionId == Context.ConnectionId))
             {
-                callMembers.Add(Context.ConnectionId);
-                await Clients.Group(groupId).SendAsync("UserJoinedGroupCall", groupId, CurrentUserId.ToString(), Context.ConnectionId);
+                members.Add((Context.ConnectionId, CurrentUserId.ToString(), user?.Username ?? "Unknown"));
             }
 
-            return currentMembers;
+            await Groups.AddToGroupAsync(Context.ConnectionId, groupId);
+            
+            // Notify others
+            await Clients.Group(groupId).SendAsync("UserJoinedGroupCall", groupId, CurrentUserId, Context.ConnectionId, user?.Username ?? "Unknown");
+            
+            return existingMembers;
         }
 
         public async Task LeaveGroupCall(string groupId)
         {
             if (_activeGroupCalls.TryGetValue(groupId, out var members))
             {
-                if (members.Contains(Context.ConnectionId))
+                members.RemoveAll(m => m.ConnectionId == Context.ConnectionId);
+                if (members.Count == 0)
                 {
-                    members.Remove(Context.ConnectionId);
-                    await Clients.Group(groupId).SendAsync("UserLeftGroupCall", CurrentUserId.ToString(), Context.ConnectionId);
-                    
-                    if (members.Count == 0)
-                    {
-                        _activeGroupCalls.TryRemove(groupId, out _);
-                        await Clients.Group(groupId).SendAsync("GroupCallEnded", groupId);
-                    }
+                    _activeGroupCalls.TryRemove(groupId, out _);
+                    await Clients.Group(groupId).SendAsync("GroupCallEnded", groupId);
                 }
             }
+            
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupId);
+            await Clients.Group(groupId).SendAsync("UserLeftGroupCall", groupId, CurrentUserId, Context.ConnectionId);
         }
 
         public async Task SendGroupOffer(string targetConnectionId, string sdp, string groupId)
@@ -387,7 +387,7 @@ namespace VideoCall.Infrastructure.SignalR
             await Clients.Client(targetConnectionId).SendAsync("ReceiveGroupAnswer", CurrentUserId.ToString(), Context.ConnectionId, sdp, groupId);
         }
 
-        public async Task SendGroupIce(string targetConnectionId, string candidate, string groupId)
+        public async Task SendGroupIce(string targetConnectionId, object candidate, string groupId)
         {
             await Clients.Client(targetConnectionId).SendAsync("ReceiveGroupIce", CurrentUserId.ToString(), Context.ConnectionId, candidate, groupId);
         }

@@ -28,6 +28,7 @@ export function useWebRTCGroup(groupId: string) {
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const [memberNames, setMemberNames] = useState<Map<string, string>>(new Map());
   
   // Mapping of connectionId -> RTCPeerConnection
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -80,10 +81,15 @@ export function useWebRTCGroup(groupId: string) {
 
   // SignalR Event Handlers for Mesh
   useEffect(() => {
-    setOnUserJoinedGroupCall((_groupId, userId, connectionId) => {
+    setOnUserJoinedGroupCall((_groupId, userId, connectionId, name) => {
       if (_groupId !== groupId) return;
-      // We don't create PC here. We wait for the newcomer to send an offer.
-      console.log('User joined group call', userId);
+      if (name) {
+        setMemberNames(prev => {
+          const newMap = new Map(prev);
+          newMap.set(connectionId, name);
+          return newMap;
+        });
+      }
     });
 
     setOnUserLeftGroupCall((_groupId, userId, connectionId) => {
@@ -161,14 +167,19 @@ export function useWebRTCGroup(groupId: string) {
       await startGroupCall(groupId);
     } else {
       const activeMembers = await joinGroupCall(groupId);
-      // Wait for existing members to send us offers OR we send offers to them.
-      // In this mesh setup, the newcomer will send offers to all existing members.
-      for (const memberConnId of activeMembers) {
-        const pc = createPeer(memberConnId, stream);
-        const offer = await pc.createOffer({});
+      activeMembers.forEach(async (member: any) => {
+        if (member.name) {
+          setMemberNames(prev => {
+            const newMap = new Map(prev);
+            newMap.set(member.connectionId, member.name);
+            return newMap;
+          });
+        }
+        const pc = createPeer(member.connectionId, stream);
+        const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
         await pc.setLocalDescription(offer);
-        await sendGroupOffer(memberConnId, JSON.stringify(offer), groupId);
-      }
+        await sendGroupOffer(member.connectionId, JSON.stringify(offer), groupId);
+      });
     }
   };
 
@@ -204,5 +215,6 @@ export function useWebRTCGroup(groupId: string) {
     endCall,
     toggleMic,
     toggleCamera,
+    memberNames,
   };
 }

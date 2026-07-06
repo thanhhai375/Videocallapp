@@ -38,7 +38,7 @@ let onCallRejectedCb: (() => void) | null = null;
 // Group Call Callbacks
 let onGroupCallStartedCb: ((groupId: string, callerId: string, callerName: string) => void) | null = null;
 let onGroupCallEndedCb: ((groupId: string) => void) | null = null;
-let onUserJoinedGroupCallCb: ((groupId: string, userId: string, connectionId: string) => void) | null = null;
+let onUserJoinedGroupCallCb: ((groupId: string, userId: string, connectionId: string, name?: string) => void) | null = null;
 let onUserLeftGroupCallCb: ((groupId: string, userId: string, connectionId: string) => void) | null = null;
 let onReceiveGroupOfferCb: ((callerId: string, callerConnectionId: string, sdp: string, groupId: string) => void) | null = null;
 let onReceiveGroupAnswerCb: ((callerId: string, callerConnectionId: string, sdp: string, groupId: string) => void) | null = null;
@@ -102,7 +102,7 @@ const initGlobalConnection = async () => {
   // Group Call Receivers
   globalConnection.on("GroupCallStarted", (groupId: string, callerId: string, callerName: string) => onGroupCallStartedCb?.(groupId, callerId, callerName));
   globalConnection.on("GroupCallEnded", (groupId: string) => onGroupCallEndedCb?.(groupId));
-  globalConnection.on("UserJoinedGroupCall", (groupId: string, userId: string, connectionId: string) => onUserJoinedGroupCallCb?.(groupId, userId, connectionId));
+  globalConnection.on("UserJoinedGroupCall", (groupId: string, userId: string, connectionId: string, name?: string) => onUserJoinedGroupCallCb?.(groupId, userId, connectionId, name));
   globalConnection.on("UserLeftGroupCall", (groupId: string, userId: string, connectionId: string) => onUserLeftGroupCallCb?.(groupId, userId, connectionId));
   globalConnection.on("ReceiveGroupOffer", (callerId: string, callerConnectionId: string, sdp: string, groupId: string) => onReceiveGroupOfferCb?.(callerId, callerConnectionId, sdp, groupId));
   globalConnection.on("ReceiveGroupAnswer", (callerId: string, callerConnectionId: string, sdp: string, groupId: string) => onReceiveGroupAnswerCb?.(callerId, callerConnectionId, sdp, groupId));
@@ -161,7 +161,7 @@ interface UseSignalRReturn {
   // Group Call Methods
   checkActiveGroupCall: (groupId: string) => Promise<boolean>;
   startGroupCall: (groupId: string) => Promise<void>;
-  joinGroupCall: (groupId: string) => Promise<string[]>;
+  joinGroupCall: (groupId: string) => Promise<any[]>;
   leaveGroupCall: (groupId: string) => Promise<void>;
   sendGroupOffer: (targetConnectionId: string, sdp: string, groupId: string) => Promise<void>;
   sendGroupAnswer: (targetConnectionId: string, sdp: string, groupId: string) => Promise<void>;
@@ -169,7 +169,7 @@ interface UseSignalRReturn {
 
   setOnGroupCallStarted: (cb: (groupId: string, callerId: string, callerName: string) => void) => void;
   setOnGroupCallEnded: (cb: (groupId: string) => void) => void;
-  setOnUserJoinedGroupCall: (cb: (groupId: string, userId: string, connectionId: string) => void) => void;
+  setOnUserJoinedGroupCall: (cb: (groupId: string, userId: string, connectionId: string, name?: string) => void) => void;
   setOnUserLeftGroupCall: (cb: (groupId: string, userId: string, connectionId: string) => void) => void;
   setOnReceiveGroupOffer: (cb: (callerId: string, callerConnectionId: string, sdp: string, groupId: string) => void) => void;
   setOnReceiveGroupAnswer: (cb: (callerId: string, callerConnectionId: string, sdp: string, groupId: string) => void) => void;
@@ -257,7 +257,7 @@ export function useSignalR(): UseSignalRReturn {
     // Group Call Methods
     checkActiveGroupCall: (groupId) => invoke("CheckActiveGroupCall", groupId) as Promise<boolean>,
     startGroupCall: (groupId) => invoke("StartGroupCall", groupId),
-    joinGroupCall: (groupId) => invoke("JoinGroupCall", groupId) as Promise<string[]>,
+    joinGroupCall: (groupId) => invoke("JoinGroupCall", groupId) as Promise<any[]>,
     leaveGroupCall: (groupId) => invoke("LeaveGroupCall", groupId),
     sendGroupOffer: (targetConnectionId, sdp, groupId) => invoke("SendGroupOffer", targetConnectionId, sdp, groupId),
     sendGroupAnswer: (targetConnectionId, sdp, groupId) => invoke("SendGroupAnswer", targetConnectionId, sdp, groupId),

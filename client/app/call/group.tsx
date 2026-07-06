@@ -22,6 +22,7 @@ export default function GroupCallScreen() {
     endCall,
     toggleMic,
     toggleCamera,
+    memberNames,
   } = useWebRTCGroup(groupId || '');
 
   // For global hub events mapping to the hook
@@ -88,7 +89,7 @@ export default function GroupCallScreen() {
         {streams.map(([connId, stream]) => (
           <View key={connId} style={videoStyle}>
             <RTCView streamURL={stream.toURL()} style={styles.video} objectFit="cover" />
-            <Text style={styles.videoLabel}>Thành viên</Text>
+            <Text style={styles.videoLabel}>{memberNames.get(connId) || 'Thành viên'}</Text>
           </View>
         ))}
       </View>
