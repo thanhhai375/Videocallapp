@@ -326,11 +326,13 @@ namespace VideoCall.Infrastructure.SignalR
         public async Task SendIce(string targetId, object candidate) => await Clients.Client(targetId).SendAsync("ReceiveIce", candidate);
         public Task<bool> CheckActiveGroupCall(string groupId)
         {
+            if (string.IsNullOrEmpty(groupId)) return Task.FromResult(false);
             return Task.FromResult(_activeGroupCalls.ContainsKey(groupId));
         }
 
         public async Task StartGroupCall(string groupId)
         {
+            if (string.IsNullOrEmpty(groupId)) return;
             var user = await _db.Users.FindAsync(CurrentUserId);
             _activeGroupCalls[groupId] = new List<(string, string, string)> { (Context.ConnectionId, CurrentUserId.ToString(), user?.Username ?? "Unknown") };
             await Groups.AddToGroupAsync(Context.ConnectionId, groupId);
@@ -339,6 +341,7 @@ namespace VideoCall.Infrastructure.SignalR
 
         public async Task<object> JoinGroupCall(string groupId)
         {
+            if (string.IsNullOrEmpty(groupId)) return new List<object>();
             if (!_activeGroupCalls.ContainsKey(groupId))
             {
                 _activeGroupCalls[groupId] = new List<(string, string, string)>();
@@ -363,6 +366,7 @@ namespace VideoCall.Infrastructure.SignalR
 
         public async Task LeaveGroupCall(string groupId)
         {
+            if (string.IsNullOrEmpty(groupId)) return;
             if (_activeGroupCalls.TryGetValue(groupId, out var members))
             {
                 members.RemoveAll(m => m.ConnectionId == Context.ConnectionId);
