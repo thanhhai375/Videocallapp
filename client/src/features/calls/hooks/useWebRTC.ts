@@ -21,7 +21,7 @@ const peerConstraints = {
 };
 
 export function useWebRTC(targetConnectionId: string | null) {
-  const { sendOffer, sendAnswer, sendIce, setOnReceiveAnswer, setOnReceiveIce } = useSignalR();
+  const { sendOffer, sendAnswer, sendIce, setOnReceiveAnswer, setOnReceiveIce, setOnReceiveOffer } = useSignalR();
   
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
@@ -116,6 +116,10 @@ export function useWebRTC(targetConnectionId: string | null) {
 
   // Handle incoming signaling events
   useEffect(() => {
+    setOnReceiveOffer((callerId: string, sdp: string) => {
+      answerCall(sdp);
+    });
+
     setOnReceiveAnswer((sdp: string) => {
       if (!pcRef.current) return;
       try {
@@ -135,7 +139,7 @@ export function useWebRTC(targetConnectionId: string | null) {
         console.error('Failed to add ICE candidate', err);
       }
     });
-  }, [setOnReceiveAnswer, setOnReceiveIce]);
+  }, [setOnReceiveAnswer, setOnReceiveIce, setOnReceiveOffer]);
 
   // Controls
   const toggleMic = () => {

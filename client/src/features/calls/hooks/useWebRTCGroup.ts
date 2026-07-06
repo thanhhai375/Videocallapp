@@ -31,11 +31,8 @@ export function useWebRTCGroup(groupId: string) {
   // Mapping of connectionId -> RTCPeerConnection
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
 
-  // Wait for setLocalStream to update before handlers can use it
+  // We set localStreamRef immediately when stream is acquired to avoid race conditions.
   const localStreamRef = useRef<MediaStream | null>(null);
-  useEffect(() => {
-    localStreamRef.current = localStream;
-  }, [localStream]);
 
   const removePeer = useCallback((connectionId: string) => {
     const pc = peersRef.current.get(connectionId);
@@ -133,6 +130,7 @@ export function useWebRTCGroup(groupId: string) {
         video: !audioOnly,
       });
       setLocalStream(stream);
+      localStreamRef.current = stream;
       return stream;
     } catch (e) {
       console.error('Lỗi lấy quyền camera/mic', e);

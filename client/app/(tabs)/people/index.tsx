@@ -27,6 +27,7 @@ import { Layout } from '@shared/constants/layout';
 import { Avatar } from '@shared/components/Avatar';
 import { ShimmerList } from '@shared/components/ShimmerCard';
 import { useAuthStore } from '@features/auth/store/authStore';
+import { useUserStore } from '@features/contacts/store/userStore';
 import { API_URL } from '@shared/constants/config';
 
 let styles: any;
@@ -700,7 +701,11 @@ export default function PeopleScreen() {
     if (!accessToken) return;
     try {
       const r = await fetch(`${API_URL}/friends`, { headers: authHeaders });
-      if (r.ok) setFriends(await r.json());
+      if (r.ok) {
+        const data = await r.json();
+        setFriends(data);
+        useUserStore.getState().setUsers(data);
+      }
     } catch {}
   }, [accessToken]);
 

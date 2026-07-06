@@ -22,7 +22,7 @@ export default function CallRoomScreen() {
     sdp?: string;
   }>();
 
-  const { endCall, setOnCallAccepted } = useSignalR();
+  const { endCall, setOnCallAccepted, setOnCallEnded, setOnCallRejected } = useSignalR();
   const {
     localStream,
     remoteStream,
@@ -48,9 +48,21 @@ export default function CallRoomScreen() {
       setCallStatus('Connecting (Waiting for video feed)...');
     }
 
+    setOnCallEnded(() => {
+      cleanup();
+      router.back();
+    });
+
+    setOnCallRejected(() => {
+      cleanup();
+      router.back();
+    });
+
     return () => {
       cleanup();
       setOnCallAccepted(null as any);
+      setOnCallEnded(null as any);
+      setOnCallRejected(null as any);
     };
   }, []);
 

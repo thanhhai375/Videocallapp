@@ -32,6 +32,8 @@ let onReceiveOfferCb: ((callerId: string, sdp: string) => void) | null = null;
 let onReceiveAnswerCb: ((sdp: string) => void) | null = null;
 let onReceiveIceCb: ((candidate: object) => void) | null = null;
 let onCallAcceptedCb: ((calleeConnectionId: string) => void) | null = null;
+let onCallEndedCb: (() => void) | null = null;
+let onCallRejectedCb: (() => void) | null = null;
 
 // Group Call Callbacks
 let onGroupCallStartedCb: ((groupId: string, callerId: string, callerName: string) => void) | null = null;
@@ -85,10 +87,12 @@ const initGlobalConnection = async () => {
 
   globalConnection.on("CallEnded", () => {
     setGlobalIncomingCall(null);
+    onCallEndedCb?.();
   });
 
   globalConnection.on("CallRejected", () => {
     setGlobalIncomingCall(null);
+    onCallRejectedCb?.();
   });
   
   globalConnection.on("CallAccepted", (calleeConnectionId: string) => {
@@ -147,6 +151,8 @@ interface UseSignalRReturn {
   setOnReceiveAnswer: (cb: (sdp: string) => void) => void;
   setOnReceiveIce: (cb: (candidate: object) => void) => void;
   setOnCallAccepted: (cb: (calleeConnectionId: string) => void) => void;
+  setOnCallEnded: (cb: () => void) => void;
+  setOnCallRejected: (cb: () => void) => void;
   sendTypingStarted: (targetId: string) => Promise<void>;
   sendTypingEnded: (targetId: string) => Promise<void>;
   sendMarkMessageSeen: (targetId: string, messageId: string) => Promise<void>;
@@ -231,6 +237,8 @@ export function useSignalR(): UseSignalRReturn {
     setOnReceiveAnswer: (cb) => { onReceiveAnswerCb = cb; },
     setOnReceiveIce: (cb) => { onReceiveIceCb = cb; },
     setOnCallAccepted: (cb) => { onCallAcceptedCb = cb; },
+    setOnCallEnded: (cb) => { onCallEndedCb = cb; },
+    setOnCallRejected: (cb) => { onCallRejectedCb = cb; },
     
     // Group Call Setters
     setOnGroupCallStarted: (cb) => { onGroupCallStartedCb = cb; },
