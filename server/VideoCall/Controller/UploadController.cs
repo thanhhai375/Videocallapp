@@ -5,7 +5,7 @@ namespace VideoCall.Controller
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    // [Authorize]
     public class UploadController : ControllerBase
     {
         private readonly IWebHostEnvironment _env;
