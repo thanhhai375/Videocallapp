@@ -12,7 +12,7 @@ namespace VideoCall.Controller
         private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             ".jpg", ".jpeg", ".png", ".gif", ".webp",  // Images
-            ".mp3", ".m4a", ".aac", ".wav", ".ogg",   // Audio
+            ".mp3", ".m4a", ".aac", ".wav", ".ogg", ".caf", ".3gp", ".webm", // Audio/Video
             ".mp4", ".mov"                              // Video
         };
 
@@ -34,7 +34,14 @@ namespace VideoCall.Controller
                     return BadRequest(new { message = "File quá lớn (tối đa 50MB)" });
 
                 var ext = Path.GetExtension(file.FileName)?.ToLower();
-                if (string.IsNullOrEmpty(ext) || !AllowedExtensions.Contains(ext))
+                if (string.IsNullOrEmpty(ext)) 
+                {
+                    if (file.ContentType.Contains("audio")) ext = ".m4a";
+                    else if (file.ContentType.Contains("video")) ext = ".mp4";
+                    else ext = ".jpg";
+                }
+
+                if (!AllowedExtensions.Contains(ext))
                     return BadRequest(new { message = $"Định dạng {ext} không được hỗ trợ" });
 
                 var webRoot = string.IsNullOrEmpty(_env.WebRootPath)

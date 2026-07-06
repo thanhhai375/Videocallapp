@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Image, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { Colors } from '@shared/constants/colors';
 import { API_URL } from '@shared/constants/config';
 
@@ -46,18 +47,24 @@ export function CreateStoryModal({ visible, onClose, onSuccess, accessToken, ins
       let mediaType = 'Text';
 
       if (storyImage) {
-        const formData = new FormData();
-        const filename = storyImage.split('/').pop() || 'story.jpg';
-        formData.append('file', { uri: storyImage, name: filename, type: 'image/jpeg' } as any);
-        const uploadRes = await fetch(`${API_URL}/upload`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: formData,
+        const uploadRes = await FileSystem.uploadAsync(`${API_URL}/upload`, storyImage, {
+          httpMethod: 'POST',
+          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+          fieldName: 'file',
+          mimeType: 'image/jpeg',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
         });
-        if (uploadRes.ok) {
-          const data = await uploadRes.json();
+
+        if (uploadRes.status >= 200 && uploadRes.status < 300) {
+          const data = JSON.parse(uploadRes.body);
           mediaUrl = data.url;
           mediaType = 'Image';
+        } else {
+          Alert.alert('Lỗi', 'Không thể tải ảnh lên');
+          setPosting(false);
+          return;
         }
       }
 

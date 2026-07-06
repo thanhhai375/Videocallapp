@@ -16,6 +16,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { useTheme } from '@shared/constants/colors';
 import { useAuthStore } from '@features/auth/store/authStore';
 import { API_URL } from '@shared/constants/config';
@@ -61,29 +62,22 @@ export default function EditProfileScreen() {
 
     try {
       const asset = result.assets[0];
-      const filename = asset.uri.split('/').pop() || 'avatar.jpg';
-
-      const formData = new FormData();
-      formData.append('file', {
-        uri: asset.uri,
-        name: filename,
-        type: 'image/jpeg',
-      } as any);
-
-      const uploadRes = await fetch(`${API_URL}/upload`, {
-        method: 'POST',
+      const uploadRes = await FileSystem.uploadAsync(`${API_URL}/upload`, asset.uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'file',
+        mimeType: 'image/jpeg',
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
-        body: formData,
       });
 
-      if (!uploadRes.ok) {
+      if (uploadRes.status < 200 || uploadRes.status >= 300) {
         Alert.alert('Lỗi', 'Không tải được ảnh đại diện.');
         return;
       }
 
-      const { url } = await uploadRes.json();
+      const { url } = JSON.parse(uploadRes.body);
 
       const avatarRes = await fetch(`${API_URL}/profile/avatar`, {
         method: 'PUT',
