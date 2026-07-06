@@ -48,8 +48,8 @@ export function useWebRTC(targetConnectionId: string | null) {
       try {
         await setAudioModeAsync({
           shouldRouteThroughEarpiece: false,
-          playsInSilentModeIOS: true,
-          allowsRecordingIOS: true,
+          playsInSilentMode: true,
+          allowsRecording: true,
         });
         await setIsAudioActiveAsync(true);
       } catch (e) {

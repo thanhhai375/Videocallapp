@@ -135,8 +135,8 @@ export function useWebRTCGroup(groupId: string) {
       try {
         await setAudioModeAsync({
           shouldRouteThroughEarpiece: false,
-          playsInSilentModeIOS: true,
-          allowsRecordingIOS: true,
+          playsInSilentMode: true,
+          allowsRecording: true,
         });
         await setIsAudioActiveAsync(true);
       } catch (e) {
